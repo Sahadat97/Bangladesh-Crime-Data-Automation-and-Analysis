@@ -1,0 +1,101 @@
+"""End-to-end pipeline: listing pages -> PDFs -> extracted monthly tables.
+
+Downloads are cached in data/pdfs/ and re-used on subsequent runs. For each
+page extracted, writes one CSV to data/monthly_csv/, appends any blank cells
+to data/blanks_review.csv (for manual completion against the source PDF), and
+finally concatenates everything into data/bd_crime_monthly_master.csv.
+"""
+import re
+from pathlib import Path
+
+import pandas as pd
+import requests
+
+from extract_pdf_table import extract_pdf
+from scrape_listing import fetch_all_listings
+
+DATA_DIR = Path(__file__).parent.parent / "data"
+PDF_DIR = DATA_DIR / "pdfs"
+CSV_DIR = DATA_DIR / "monthly_csv"
+HEADERS = {"User-Agent": "Mozilla/5.0"}
+
+
+def slugify_title(title: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+
+
+def download_pdf(url: str, dest: Path, attempts: int = 3):
+    if dest.exists():
+        return
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        try:
+            # (connect timeout, read timeout) - caps how long one stalled request can block the run
+            resp = requests.get(url, headers=HEADERS, timeout=(10, 30))
+            resp.raise_for_status()
+            tmp = dest.with_suffix(".part")
+            tmp.write_bytes(resp.content)
+            tmp.rename(dest)
+            return
+        except requests.exceptions.RequestException as e:
+            last_error = e
+            print(f"    attempt {attempt}/{attempts} failed: {e}")
+    raise last_error
+
+
+def run():
+    PDF_DIR.mkdir(parents=True, exist_ok=True)
+    CSV_DIR.mkdir(parents=True, exist_ok=True)
+
+    listings = fetch_all_listings()
+    print(f"Found {len(listings)} listing entries")
+
+    all_blanks = []
+    all_frames = []
+
+    for entry in listings:
+        pdf_path = PDF_DIR / f"{slugify_title(entry['title'])}.pdf"
+        try:
+            download_pdf(entry["pdf_url"], pdf_path)
+        except Exception as e:
+            print(f"  [download FAILED] {entry['title']}: {e}")
+            continue
+
+        print(f"Processing {entry['title']} ({pdf_path.name})")
+        for page_index, df, blanks, month, year, is_annual in extract_pdf(pdf_path):
+            if df is None:
+                print(f"  page {page_index}: FAILED - {blanks}")
+                all_blanks.append({
+                    "source": entry["title"], "page": page_index,
+                    "month": None, "year": None, "unit": "ENTIRE PAGE",
+                    "column": "extraction failed", "note": blanks,
+                })
+                continue
+
+            label = f"{month} {year}"
+            csv_name = f"{year}-{slugify_title(str(month))}.csv" if year else f"{pdf_path.stem}-p{page_index}.csv"
+            csv_path = CSV_DIR / csv_name
+            df.to_csv(csv_path, index=False)
+            df["is_annual_total"] = is_annual
+            df["source_pdf"] = pdf_path.name
+            all_frames.append(df)
+
+            for unit, col in blanks:
+                all_blanks.append({
+                    "source": entry["title"], "page": page_index,
+                    "month": month, "year": year, "unit": unit, "column": col, "note": "",
+                })
+            print(f"  page {page_index}: {label} -> {csv_path.name} ({len(blanks)} blanks)")
+
+    if all_blanks:
+        pd.DataFrame(all_blanks).to_csv(DATA_DIR / "blanks_review.csv", index=False)
+        print(f"\n{len(all_blanks)} total blank cells logged to data/blanks_review.csv")
+
+    if all_frames:
+        master = pd.concat(all_frames, ignore_index=True)
+        master.to_csv(DATA_DIR / "bd_crime_monthly_master.csv", index=False)
+        print(f"Master table: {len(master)} rows -> data/bd_crime_monthly_master.csv")
+
+
+if __name__ == "__main__":
+    run()
