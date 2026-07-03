@@ -32,6 +32,21 @@ The Bangladesh Police publishes crime statistics broken down by unit
    runs extraction, writes one CSV per month, and concatenates everything
    into a master table.
 
+## Dashboard
+
+**`app/app.py`** is a [Streamlit](https://streamlit.io/) dashboard for
+exploring the consolidated data: national/unit trends over time, a crime-type
+breakdown, and a dedicated recovery-cases view. Columns prefixed `r_`
+(`r_arms_act`, `r_explosive_act`, `r_narcotics`, `r_smuggling`) are
+**recovery cases** — arms, explosives, narcotics, or smuggled goods
+recovered by police — as distinct from the filed criminal case counts in
+the other columns.
+
+```bash
+pip3 install -r app/requirements.txt
+streamlit run app/app.py
+```
+
 ## Repository layout
 
 ```
@@ -42,6 +57,10 @@ scraper/
   pipeline.py             # end-to-end orchestration
   ocr.swift / build.sh    # macOS Vision-based OCR helper (compile with build.sh)
   bin/ocr                 # compiled OCR binary
+
+app/
+  app.py                  # Streamlit dashboard
+  requirements.txt        # dashboard dependencies
 
 data/
   pdfs/                   # cached source PDF downloads
