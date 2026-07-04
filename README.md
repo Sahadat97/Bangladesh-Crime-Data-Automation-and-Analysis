@@ -48,7 +48,9 @@ breakdown, and a dedicated recovery-cases view. Columns prefixed `r_`
 (`r_arms_act`, `r_explosive_act`, `r_narcotics`, `r_smuggling`) are
 **recovery cases** — arms, explosives, narcotics, or smuggled goods
 recovered by police — as distinct from the filed criminal case counts in
-the other columns.
+the other columns. It has three tabs: the Vision-based monthly dataset, the
+PaddleOCR-based monthly dataset (for side-by-side accuracy comparison), and
+the 2010-2019 annual dataset.
 
 ```bash
 pip3 install -r app/requirements.txt

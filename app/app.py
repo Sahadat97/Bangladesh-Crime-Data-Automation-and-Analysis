@@ -50,11 +50,12 @@ MONTH_ORDER = [
 
 
 @st.cache_data
-def load_monthly() -> pd.DataFrame:
-    df = pd.read_csv(DATA_DIR / "bd_crime_monthly_master.csv")
+def load_monthly(path) -> pd.DataFrame:
+    df = pd.read_csv(path)
+    df = df[~df["is_annual_total"]]  # exclude the Jan-Dec total page - a duplicate of the year, not a 13th month
     df["month"] = pd.Categorical(df["month"], categories=MONTH_ORDER, ordered=True)
     df["period"] = pd.to_datetime(
-        df["year"].astype(str) + "-" + df["month"].astype(str), format="%Y-%B", errors="coerce"
+        df["year"].astype(int).astype(str) + "-" + df["month"].astype(str), format="%Y-%B", errors="coerce"
     )
     return df
 
@@ -142,17 +143,17 @@ def render_data_table(df: pd.DataFrame, key: str):
     )
 
 
-def monthly_tab():
-    df = load_monthly()
+def monthly_tab(master_path, key_prefix, source_note):
+    df = load_monthly(master_path)
 
-    st.sidebar.header("Monthly Filters")
+    st.sidebar.header(f"{key_prefix.title()} Filters")
     years = sorted(df["year"].dropna().unique())
     year_range = st.sidebar.select_slider(
-        "Year range", options=years, value=(years[0], years[-1]), key="monthly_years"
+        "Year range", options=years, value=(years[0], years[-1]), key=f"{key_prefix}_years"
     )
     unit_options = sorted_units(df["unit_name"])
     selected_units = st.sidebar.multiselect(
-        "Units (national total shown if empty)", unit_options, key="monthly_units"
+        "Units (national total shown if empty)", unit_options, key=f"{key_prefix}_units"
     )
 
     mask = df["year"].between(*year_range)
@@ -160,9 +161,7 @@ def monthly_tab():
 
     st.caption(
         f"{len(filtered):,} unit-month records across "
-        f"{int(year_range[0])}-{int(year_range[1])}. "
-        "Some cells are blank where scanned PDF reports could not be OCR'd "
-        "reliably (see `data/blanks_review.csv`)."
+        f"{int(year_range[0])}-{int(year_range[1])}. {source_note}"
     )
 
     trend_source = filtered[filtered["unit_name"].isin(selected_units)] if selected_units else filtered[filtered["unit_name"] == "Total"]
@@ -176,7 +175,7 @@ def monthly_tab():
     render_kpis(breakdown_source, filtered[filtered["unit_name"] == "Total"] if not selected_units else breakdown_source)
     render_breakdown_charts(breakdown_source)
     render_unit_comparison(filtered)
-    render_data_table(filtered, "bd_crime_monthly_filtered")
+    render_data_table(filtered, f"bd_crime_{key_prefix}_filtered")
 
 
 def annual_tab():
@@ -220,10 +219,27 @@ def main():
         "[Bangladesh Police](https://www.police.gov.bd/) crime statistics reports."
     )
 
-    tab1, tab2 = st.tabs(["Monthly (2019-Present)", "Annual (2010-2019)"])
+    tab1, tab2, tab3 = st.tabs([
+        "Monthly (2019-Present)", "Monthly - PaddleOCR", "Annual (2010-2019)",
+    ])
     with tab1:
-        monthly_tab()
+        monthly_tab(
+            DATA_DIR / "bd_crime_monthly_master.csv", "monthly",
+            "Some cells are blank where scanned PDF reports could not be OCR'd "
+            "reliably (see `data/blanks_review.csv`). OCR engine: macOS Vision.",
+        )
     with tab2:
+        st.caption(
+            "Built entirely with [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) "
+            "instead of the default Vision engine (see `scraper/pipeline_paddle.py`), "
+            "kept as a separate dataset for side-by-side accuracy comparison."
+        )
+        monthly_tab(
+            DATA_DIR / "bd_crime_monthly_master_paddle.csv", "paddle",
+            "Some cells are blank where scanned PDF reports could not be OCR'd "
+            "reliably (see `data/blanks_review_paddle.csv`). OCR engine: PaddleOCR.",
+        )
+    with tab3:
         annual_tab()
 
 
