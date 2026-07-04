@@ -43,9 +43,16 @@ def download_pdf(url: str, dest: Path, attempts: int = 3):
     raise last_error
 
 
-def run(engine="vision"):
+def run(engine="vision", csv_dir=CSV_DIR, master_path=None, blanks_path=None):
+    """csv_dir/master_path/blanks_path default to the standard (Vision) output
+    locations, but can be overridden so an alternate engine's pass doesn't
+    overwrite the reference dataset - see pipeline_paddle.py.
+    """
+    master_path = master_path or (DATA_DIR / "bd_crime_monthly_master.csv")
+    blanks_path = blanks_path or (DATA_DIR / "blanks_review.csv")
+
     PDF_DIR.mkdir(parents=True, exist_ok=True)
-    CSV_DIR.mkdir(parents=True, exist_ok=True)
+    csv_dir.mkdir(parents=True, exist_ok=True)
 
     listings = fetch_all_listings()
     print(f"Found {len(listings)} listing entries")
@@ -74,7 +81,7 @@ def run(engine="vision"):
 
             label = f"{month} {year}"
             csv_name = f"{year}-{slugify_title(str(month))}.csv" if year else f"{pdf_path.stem}-p{page_index}.csv"
-            csv_path = CSV_DIR / csv_name
+            csv_path = csv_dir / csv_name
             df.to_csv(csv_path, index=False)
             df["is_annual_total"] = is_annual
             df["source_pdf"] = pdf_path.name
@@ -88,13 +95,13 @@ def run(engine="vision"):
             print(f"  page {page_index}: {label} -> {csv_path.name} ({len(blanks)} blanks)")
 
     if all_blanks:
-        pd.DataFrame(all_blanks).to_csv(DATA_DIR / "blanks_review.csv", index=False)
-        print(f"\n{len(all_blanks)} total blank cells logged to data/blanks_review.csv")
+        pd.DataFrame(all_blanks).to_csv(blanks_path, index=False)
+        print(f"\n{len(all_blanks)} total blank cells logged to {blanks_path}")
 
     if all_frames:
         master = pd.concat(all_frames, ignore_index=True)
-        master.to_csv(DATA_DIR / "bd_crime_monthly_master.csv", index=False)
-        print(f"Master table: {len(master)} rows -> data/bd_crime_monthly_master.csv")
+        master.to_csv(master_path, index=False)
+        print(f"Master table: {len(master)} rows -> {master_path}")
 
 
 if __name__ == "__main__":
