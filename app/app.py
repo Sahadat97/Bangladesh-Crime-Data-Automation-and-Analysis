@@ -65,6 +65,17 @@ def load_annual() -> pd.DataFrame:
     return pd.read_csv(DATA_DIR / "bd_crime_annual_2010_2019.csv")
 
 
+def scope_to_units(filtered: pd.DataFrame, selected_units: list[str]) -> pd.DataFrame:
+    """Individual unit-level rows for the current selection. When nothing is
+    selected, this is every unit *except* "Total" - the aggregate is then a
+    cumulative sum over the actual monthly unit data, computed here, rather
+    than trusting the dataset's own (separately OCR'd) "Total" row.
+    """
+    if selected_units:
+        return filtered[filtered["unit_name"].isin(selected_units)]
+    return filtered[filtered["unit_name"] != "Total"]
+
+
 def sorted_units(units: pd.Series) -> list[str]:
     present = list(units.dropna().unique())
     ordered = [u for u in UNIT_ORDER if u in present]
@@ -74,15 +85,15 @@ def sorted_units(units: pd.Series) -> list[str]:
     return ordered
 
 
-def render_kpis(df: pd.DataFrame, total_row: pd.DataFrame):
-    total_cases = total_row["total_cases"].sum()
-    total_recovery = total_row["total_recovery_cases"].sum()
+def render_kpis(df: pd.DataFrame):
+    """df should be individual unit-level rows (not the dataset's own "Total"
+    row) so both the sums and the per-unit breakdown below are computed from
+    the same real data, rather than trusting a separately-OCR'd "Total" cell.
+    """
+    total_cases = df["total_cases"].sum()
+    total_recovery = df["total_recovery_cases"].sum()
     top_crime_col = df[list(CRIME_COLUMNS)].sum().idxmax() if not df.empty else None
-    top_unit = (
-        df[df["unit_name"] != "Total"].groupby("unit_name")["total_cases"].sum().idxmax()
-        if not df[df["unit_name"] != "Total"].empty
-        else "N/A"
-    )
+    top_unit = df.groupby("unit_name")["total_cases"].sum().idxmax() if not df.empty else "N/A"
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Cases", f"{total_cases:,.0f}")
@@ -164,16 +175,16 @@ def monthly_tab(master_path, key_prefix, source_note):
         f"{int(year_range[0])}-{int(year_range[1])}. {source_note}"
     )
 
-    trend_source = filtered[filtered["unit_name"].isin(selected_units)] if selected_units else filtered[filtered["unit_name"] == "Total"]
-    trend = trend_source.groupby("period", as_index=False)["total_cases"].sum()
+    scope = scope_to_units(filtered, selected_units)
+
+    trend = scope.groupby("period", as_index=False)["total_cases"].sum()
     st.subheader("Total Cases Over Time" + (" (Selected Units)" if selected_units else " (National)"))
     fig = px.line(trend, x="period", y="total_cases", markers=True)
     fig.update_layout(xaxis_title="", yaxis_title="Total Cases")
     st.plotly_chart(fig, use_container_width=True)
 
-    breakdown_source = filtered[filtered["unit_name"].isin(selected_units)] if selected_units else filtered[filtered["unit_name"] == "Total"]
-    render_kpis(breakdown_source, filtered[filtered["unit_name"] == "Total"] if not selected_units else breakdown_source)
-    render_breakdown_charts(breakdown_source)
+    render_kpis(scope)
+    render_breakdown_charts(scope)
     render_unit_comparison(filtered)
     render_data_table(filtered, f"bd_crime_{key_prefix}_filtered")
 
@@ -197,16 +208,16 @@ def annual_tab():
         "(scraped directly from HTML tables, no OCR involved)."
     )
 
-    trend_source = filtered[filtered["unit_name"].isin(selected_units)] if selected_units else filtered[filtered["unit_name"] == "Total"]
-    trend = trend_source.groupby("year", as_index=False)["total_cases"].sum()
+    scope = scope_to_units(filtered, selected_units)
+
+    trend = scope.groupby("year", as_index=False)["total_cases"].sum()
     st.subheader("Total Cases Over Time" + (" (Selected Units)" if selected_units else " (National)"))
     fig = px.line(trend, x="year", y="total_cases", markers=True)
     fig.update_layout(xaxis_title="", yaxis_title="Total Cases")
     st.plotly_chart(fig, use_container_width=True)
 
-    breakdown_source = filtered[filtered["unit_name"].isin(selected_units)] if selected_units else filtered[filtered["unit_name"] == "Total"]
-    render_kpis(breakdown_source, filtered[filtered["unit_name"] == "Total"] if not selected_units else breakdown_source)
-    render_breakdown_charts(breakdown_source)
+    render_kpis(scope)
+    render_breakdown_charts(scope)
     render_unit_comparison(filtered)
     render_data_table(filtered, "bd_crime_annual_filtered")
 
