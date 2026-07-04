@@ -43,7 +43,7 @@ def download_pdf(url: str, dest: Path, attempts: int = 3):
     raise last_error
 
 
-def run():
+def run(engine="vision"):
     PDF_DIR.mkdir(parents=True, exist_ok=True)
     CSV_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -62,7 +62,7 @@ def run():
             continue
 
         print(f"Processing {entry['title']} ({pdf_path.name})")
-        for page_index, df, blanks, month, year, is_annual in extract_pdf(pdf_path):
+        for page_index, df, blanks, month, year, is_annual in extract_pdf(pdf_path, engine):
             if df is None:
                 print(f"  page {page_index}: FAILED - {blanks}")
                 all_blanks.append({
@@ -98,4 +98,12 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--engine", choices=["vision", "paddleocr"], default="vision",
+        help="OCR backend for reading scanned PDF pages (default: vision)",
+    )
+    args = parser.parse_args()
+    run(args.engine)

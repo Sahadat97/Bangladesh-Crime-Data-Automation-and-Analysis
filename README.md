@@ -23,11 +23,19 @@ The Bangladesh Police publishes crime statistics broken down by unit
    directly from HTML — no OCR needed.
 3. **`extract_pdf_table.py`** processes each scanned PDF page: extracts the
    embedded raster image, detects the table's grid lines with OpenCV, OCRs
-   the page using macOS's Vision framework (via the compiled `ocr.swift`
-   helper — more accurate than Tesseract on this scan quality), and maps
-   each recognized token to its (row, column) cell using the grid geometry.
-   Cells the OCR can't confidently read are left blank and logged for manual
-   review rather than guessed.
+   the page, and maps each recognized token to its (row, column) cell using
+   the grid geometry. Cells the OCR can't confidently read are left blank and
+   logged for manual review rather than guessed. The OCR backend is
+   pluggable:
+   - `vision` (default): macOS's Vision framework, via the compiled
+     `ocr.swift` helper — more accurate than Tesseract on this scan quality,
+     tested empirically.
+   - `paddleocr`: [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR), a
+     cross-platform alternative (useful off macOS, or to compare accuracy
+     against Vision). Install with
+     `pip3 install -r scraper/requirements-paddleocr.txt`, then pass
+     `--engine paddleocr` to `pipeline.py`, or `engine="paddleocr"` to
+     `extract_pdf()`/`extract_page()` directly.
 4. **`pipeline.py`** ties it together end-to-end: downloads and caches PDFs,
    runs extraction, writes one CSV per month, and concatenates everything
    into a master table.
@@ -57,6 +65,7 @@ scraper/
   pipeline.py             # end-to-end orchestration
   ocr.swift / build.sh    # macOS Vision-based OCR helper (compile with build.sh)
   bin/ocr                 # compiled OCR binary
+  requirements-paddleocr.txt  # optional deps for the paddleocr engine
 
 app/
   app.py                  # Streamlit dashboard
@@ -81,7 +90,8 @@ pip3 install -r scraper/requirements.txt
 ## Usage
 
 ```bash
-python3 scraper/pipeline.py
+python3 scraper/pipeline.py                    # OCRs scanned pages with Vision (default)
+python3 scraper/pipeline.py --engine paddleocr  # OCRs scanned pages with PaddleOCR instead
 ```
 
 This downloads any new monthly PDFs, extracts their tables, and refreshes

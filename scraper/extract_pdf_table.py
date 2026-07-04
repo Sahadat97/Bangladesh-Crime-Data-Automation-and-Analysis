@@ -2,10 +2,17 @@
 
 These PDFs are scanned images with no text layer, so the pipeline per page is:
 pull the embedded raster out of the PDF page -> detect the table's grid lines
-with OpenCV -> OCR the page with macOS's Vision framework (far more accurate
-than Tesseract on this scan quality, tested empirically) -> map each
-recognized token to its (row, col) cell using the grid geometry, and read the
-"Crime Statistics in <Month> <Year>" caption to label the page.
+with OpenCV -> OCR the page -> map each recognized token to its (row, col)
+cell using the grid geometry, and read the "Crime Statistics in <Month> <Year>"
+caption to label the page.
+
+The OCR step is pluggable (see run_ocr/OCR_ENGINES below):
+  - "vision" (default): macOS's Vision framework, via the compiled ocr.swift
+    helper - far more accurate than Tesseract on this scan quality, tested
+    empirically.
+  - "paddleocr": PaddleOCR, a cross-platform alternative (useful off macOS,
+    or to compare accuracy against Vision). Requires the optional
+    paddleocr/paddlepaddle packages - see scraper/requirements-paddleocr.txt.
 
 Some PDFs are a single month (one page); others ("annual" reports) bundle all
 12 months of a year plus a Jan-Dec total, one page each, in the same layout -
@@ -241,6 +248,57 @@ def run_vision_ocr(image_path):
     return tokens
 
 
+_PADDLE_OCR = None
+
+
+def _paddle_engine():
+    """Lazily creates (and caches) the PaddleOCR engine - construction loads
+    detection/recognition models from disk, so it's built once per process
+    rather than per page/cell. Import is deferred here too: paddleocr and its
+    paddlepaddle dependency are optional and heavy, only needed by callers
+    that actually pass engine="paddleocr".
+    """
+    global _PADDLE_OCR
+    if _PADDLE_OCR is None:
+        from paddleocr import PaddleOCR
+        _PADDLE_OCR = PaddleOCR(
+            lang="en",
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False,
+            use_textline_orientation=False,
+        )
+    return _PADDLE_OCR
+
+
+def run_paddle_ocr(image_path):
+    """Runs PaddleOCR on the page image. Same (text, cx, cy) pixel-coordinate
+    return shape as run_vision_ocr, so it's a drop-in alternative OCR backend -
+    build_table/retry_blank_cells don't need to know which engine produced the
+    tokens.
+    """
+    results = _paddle_engine().predict(str(image_path))
+    tokens = []
+    for result in results:
+        for text, box in zip(result["rec_texts"], result["rec_boxes"]):
+            x0, y0, x1, y1 = box
+            tokens.append((text, (float(x0) + float(x1)) / 2, (float(y0) + float(y1)) / 2))
+    return tokens
+
+
+OCR_ENGINES = {
+    "vision": run_vision_ocr,
+    "paddleocr": run_paddle_ocr,
+}
+
+
+def run_ocr(image_path, engine="vision"):
+    try:
+        engine_fn = OCR_ENGINES[engine]
+    except KeyError:
+        raise ValueError(f"Unknown OCR engine {engine!r}; choose from {sorted(OCR_ENGINES)}")
+    return engine_fn(image_path)
+
+
 def parse_caption(tokens):
     """Reads the '<Month> <Year>' or '<Month>-<Month> <Year>' caption above the table."""
     for text, _, _ in tokens:
@@ -287,7 +345,7 @@ def build_table(hlines, vlines, tokens):
     return rows, blank_idx, row_bounds, col_bounds
 
 
-def retry_blank_cells(image, row_bounds, col_bounds, rows, blank_idx, tmp_dir, page_index):
+def retry_blank_cells(image, row_bounds, col_bounds, rows, blank_idx, tmp_dir, page_index, engine="vision"):
     """Re-OCRs blank cells in isolation, which recognizes far better than a whole
     busy table page since there's no surrounding text to compete with - but a
     separate OCR subprocess call per cell doesn't scale (startup overhead per
@@ -335,7 +393,7 @@ def retry_blank_cells(image, row_bounds, col_bounds, rows, blank_idx, tmp_dir, p
     tmp_png = tmp_dir / f"_blanks_page{page_index}.png"
     cv2.imwrite(str(tmp_png), montage)
     try:
-        tokens = run_vision_ocr(tmp_png)
+        tokens = run_ocr(tmp_png, engine)
     finally:
         tmp_png.unlink(missing_ok=True)
 
@@ -366,16 +424,16 @@ def to_dataframe(rows, month, year):
     return df
 
 
-def _ocr_candidate(image, page_index, tmp_dir):
+def _ocr_candidate(image, page_index, tmp_dir, engine="vision"):
     tmp_png = tmp_dir / f"_page{page_index}.png"
     cv2.imwrite(str(tmp_png), image)
     try:
-        return run_vision_ocr(tmp_png)
+        return run_ocr(tmp_png, engine)
     finally:
         tmp_png.unlink(missing_ok=True)
 
 
-def extract_page(page, page_index, tmp_dir):
+def extract_page(page, page_index, tmp_dir, engine="vision"):
     """One page -> (DataFrame, blanks, month_label, year, is_annual_total)."""
     raw_image = extract_page_image(page)
     candidates = detect_grid_with_rotation(raw_image)
@@ -384,7 +442,7 @@ def extract_page(page, page_index, tmp_dir):
     # OCR'd caption actually parses proves the content reads right-side-up.
     fallback = None
     for image, hlines, vlines in candidates:
-        tokens = _ocr_candidate(image, page_index, tmp_dir)
+        tokens = _ocr_candidate(image, page_index, tmp_dir, engine)
         month, year, is_annual = parse_caption(tokens)
         if month is not None:
             break
@@ -394,7 +452,7 @@ def extract_page(page, page_index, tmp_dir):
         image, hlines, vlines, tokens, month, year, is_annual = fallback
 
     rows, blank_idx, row_bounds, col_bounds = build_table(hlines, vlines, tokens)
-    blank_idx = retry_blank_cells(image, row_bounds, col_bounds, rows, blank_idx, tmp_dir, page_index)
+    blank_idx = retry_blank_cells(image, row_bounds, col_bounds, rows, blank_idx, tmp_dir, page_index, engine)
     df = to_dataframe(rows, month, year)
 
     # A cell can be non-empty (so build_table doesn't flag it as blank) yet still
@@ -413,14 +471,14 @@ def extract_page(page, page_index, tmp_dir):
     return df, blanks, month, year, is_annual
 
 
-def extract_pdf(pdf_path):
+def extract_pdf(pdf_path, engine="vision"):
     """Every page of the PDF -> list of (DataFrame, blanks, month, year, is_annual)."""
     pdf_path = Path(pdf_path)
     results = []
     with pdfplumber.open(pdf_path) as pdf:
         for i, page in enumerate(pdf.pages):
             try:
-                results.append((i, *extract_page(page, i, pdf_path.parent)))
+                results.append((i, *extract_page(page, i, pdf_path.parent, engine)))
             except Exception as e:
                 results.append((i, None, [(f"PAGE {i}", str(e))], None, None, False))
     return results
@@ -429,7 +487,8 @@ def extract_pdf(pdf_path):
 if __name__ == "__main__":
     import sys
     pdf_path = sys.argv[1]
-    for i, df, blanks, month, year, is_annual in extract_pdf(pdf_path):
+    engine = sys.argv[2] if len(sys.argv) > 2 else "vision"
+    for i, df, blanks, month, year, is_annual in extract_pdf(pdf_path, engine):
         label = f"{month} {year}" + (" (annual total)" if is_annual else "")
         print(f"\n=== page {i}: {label} ===")
         if df is None:
