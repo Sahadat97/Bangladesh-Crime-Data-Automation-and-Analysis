@@ -39,6 +39,17 @@ The Bangladesh Police publishes crime statistics broken down by unit
 4. **`pipeline.py`** ties it together end-to-end: downloads and caches PDFs,
    runs extraction, writes one CSV per month, and concatenates everything
    into a master table.
+5. **`pipeline_paddle.py`** builds a separate PaddleOCR-based master dataset
+   (`data/bd_crime_monthly_master_paddle.csv`, kept apart from the Vision
+   dataset for comparison). By default it uses the hosted
+   [PaddleOCR-VL](https://paddleocr.ai/) API (`paddleocr_vl_api.py`): one
+   job submission processes a whole PDF server-side and returns each page
+   already parsed into markdown, so known unit-name rows are matched
+   directly out of each page's markdown table rather than going through
+   `extract_pdf_table.py`'s OpenCV grid detection. This needs the
+   `PADDLEOCR_API_TOKEN` environment variable set to an AI Studio access
+   token. Pass `--engine local` instead to use the paddleocr Python library
+   locally, per page (the original approach, via `extract_pdf_table.py`).
 
 ## Dashboard
 
