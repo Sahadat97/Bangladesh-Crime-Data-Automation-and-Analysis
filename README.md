@@ -44,12 +44,20 @@ The Bangladesh Police publishes crime statistics broken down by unit
    dataset for comparison). By default it uses the hosted
    [PaddleOCR-VL](https://paddleocr.ai/) API (`paddleocr_vl_api.py`): one
    job submission processes a whole PDF server-side and returns each page
-   already parsed into markdown, so known unit-name rows are matched
-   directly out of each page's markdown table rather than going through
-   `extract_pdf_table.py`'s OpenCV grid detection. This needs the
+   already parsed into markdown (tables as HTML), so known unit-name rows
+   are matched directly out of each page's parsed table rather than going
+   through `extract_pdf_table.py`'s OpenCV grid detection. This needs the
    `PADDLEOCR_API_TOKEN` environment variable set to an AI Studio access
    token. Pass `--engine local` instead to use the paddleocr Python library
    locally, per page (the original approach, via `extract_pdf_table.py`).
+
+   Across all 96 pages, this API path left only 664 blank cells - and 663 of
+   those come from one systematic gap (the "Railway Range" row is dropped
+   entirely on ~40% of pages), with just a single other stray blank in the
+   whole dataset. That's a meaningfully more complete result than either the
+   Vision (416 blanks) or local-library PaddleOCR (426 blanks) paths, at the
+   cost of depending on an external paid API instead of running fully
+   offline.
 
 ## Dashboard
 

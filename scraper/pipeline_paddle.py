@@ -3,9 +3,10 @@ output paths so it never overwrites the Vision-based reference dataset.
 
 Default mode calls the hosted PaddleOCR-VL API (see paddleocr_vl_api.py):
 one job submission processes a whole PDF (all its pages) server-side and
-returns each page already parsed into markdown, so this does NOT reuse
-extract_pdf_table.py's per-page-image OpenCV grid detection - instead, known
-unit-name rows are matched directly out of each page's markdown table.
+returns each page already parsed into markdown - with tables embedded as
+raw HTML <table> markup, not pipe syntax - so this does NOT reuse
+extract_pdf_table.py's per-page-image OpenCV grid detection. Instead, known
+unit-name rows are matched directly out of each page's parsed HTML table.
 Requires the PADDLEOCR_API_TOKEN environment variable (an AI Studio access
 token).
 
@@ -13,10 +14,10 @@ token).
 library locally, per page, through extract_pdf_table.py's grid-detection
 pipeline (same as before this API was added).
 """
-import re
 from pathlib import Path
 
 import pandas as pd
+from bs4 import BeautifulSoup
 
 from extract_pdf_table import COLUMNS, TITLE_RE, UNITS
 from paddleocr_vl_api import run_ocr_pdf
@@ -27,50 +28,40 @@ CSV_DIR_PADDLE = DATA_DIR / "monthly_csv_paddle"
 MASTER_PATH_PADDLE = DATA_DIR / "bd_crime_monthly_master_paddle.csv"
 BLANKS_PATH_PADDLE = DATA_DIR / "blanks_review_paddle.csv"
 
-TABLE_ROW_RE = re.compile(r"^\|(.+)\|\s*$")
-SEPARATOR_CELL_RE = re.compile(r":?-+:?")
-
-
-def parse_markdown_table_rows(markdown_text):
-    """Extracts pipe-delimited table rows from a page's markdown, one
-    cell-list per row, in document order. Separator rows (e.g.
-    "| --- | --- |") are dropped.
-    """
-    rows = []
-    for line in markdown_text.splitlines():
-        m = TABLE_ROW_RE.match(line.strip())
-        if not m:
-            continue
-        cells = [c.strip() for c in m.group(1).split("|")]
-        if all(SEPARATOR_CELL_RE.fullmatch(c) for c in cells if c):
-            continue
-        rows.append(cells)
-    return rows
-
 
 def build_page_dataframe(markdown_text):
     """Matches known unit-name rows (order-independent) out of the page's
-    parsed markdown table and maps their cells onto our standard COLUMNS
-    layout positionally. Header text/merges from a VL-parsed scan aren't
-    reliable enough to key off of, but the unit names and column order are
-    a fixed government template across the whole dataset - the same
-    assumption the local OCR+grid pipeline relies on.
+    parsed HTML table and maps their cells onto our standard COLUMNS layout
+    positionally. Header cells (with rowspan/colspan, e.g. "Recovery Cases"
+    spanning 5 sub-columns) aren't reliable enough to key off of, but the
+    unit names and column order are a fixed government template across the
+    whole dataset - the same assumption the local OCR+grid pipeline relies
+    on, and header rows simply won't match any unit name so they're skipped.
     """
     unit_lookup = {u.lower(): u for u in UNITS}
     n_numeric_cols = len(COLUMNS) - 1
-    rows_out = []
-    for cells in parse_markdown_table_rows(markdown_text):
-        if not cells:
-            continue
-        unit = unit_lookup.get(cells[0].strip().lower())
-        if unit is None:
-            continue
-        values = cells[1:1 + n_numeric_cols]
-        values += [""] * (n_numeric_cols - len(values))
-        rows_out.append([unit] + values)
+    matched = {}
 
-    if not rows_out:
+    soup = BeautifulSoup(markdown_text, "html.parser")
+    for table in soup.find_all("table"):
+        for tr in table.find_all("tr"):
+            cells = [td.get_text(strip=True) for td in tr.find_all("td")]
+            if not cells:
+                continue
+            unit = unit_lookup.get(cells[0].strip().lower())
+            if unit is None:
+                continue
+            values = cells[1:1 + n_numeric_cols]
+            values += [""] * (n_numeric_cols - len(values))
+            matched[unit] = values
+
+    if not matched:
         return None
+    # Any unit the layout parser dropped/merged entirely (not just a blank
+    # cell within a matched row) gets a fully-blank row here, so it still
+    # shows up as reported blanks below rather than silently vanishing, and
+    # every page has the same fixed 18-row shape as the rest of the dataset.
+    rows_out = [[unit] + matched.get(unit, [""] * n_numeric_cols) for unit in UNITS]
     df = pd.DataFrame(rows_out, columns=COLUMNS)
     numeric_cols = [c for c in COLUMNS if c != "unit_name"]
     df[numeric_cols] = df[numeric_cols].apply(lambda s: pd.to_numeric(s, errors="coerce"))

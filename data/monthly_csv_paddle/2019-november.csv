@@ -1,7 +1,7 @@
 unit_name,dacoity,robbery,murder,speedy_trial,riot,woman_child_repression,kidnapping,police_assault,burglary,theft,other_cases,r_arms_act,r_explosive_act,r_narcotics,r_smuggling,total_recovery_cases,total_cases,month,year
 DMP,2,22,20,4,1,210,4,4,60,141,477,12,2,1355,15,1384,2329,November,2019
 CMP,0,5,5,9,0,94,0,2,8,20,109,51,1,421,4,477,729,November,2019
-KMP,0,0,1,0,0,9,6,0,4,1,23,3,0,111,1,115,153,November,2019
+KMP,0,0,1,0,0,9,0,0,4,1,23,3,0,111,1,115,153,November,2019
 RMP,0,1,4,0,0,14,1,0,1,7,38,2,0,325,19,346,412,November,2019
 BMP,0,0,3,0,0,21,1,0,8,7,33,2,0,88,0,90,163,November,2019
 SMP,0,2,3,6,0,23,1,1,1,16,62,4,0,63,9,76,191,November,2019
