@@ -1,0 +1,19 @@
+unit_name,dacoity,robbery,murder,speedy_trial,riot,woman_child_repression,kidnapping,police_assault,burglary,theft,other_cases,r_arms_act,r_explosive_act,r_narcotics,r_smuggling,total_recovery_cases,total_cases,month,year
+DMP,4,13,17,7,0,215,5,6,46,110,597,10,5,1472,16,1503,2523,October,2021
+CMP,0,8,2,2,0,102,4,1,12,23,162,15,0,169,1,185,501,October,2021
+KMP,1,0,1,0,0,12,0,0,0,11,40,2,0,83,2,87,152,October,2021
+RMP,0,2,1,0,0,12,1,0,3,9,47,0,0,281,9,290,365,October,2021
+BMP,0,0,2,4,0,10,0,0,9,10,49,0,0,92,0,92,176,October,2021
+SMP,0,6,2,4,0,26,1,2,11,18,80,1,0,62,1,64,214,October,2021
+RPMP,0,0,1,1,0,17,0,0,2,13,53,0,0,58,0,58,145,October,2021
+GMP,1,0,4,5,0,38,4,0,0,17,58,2,0,109,0,111,238,October,2021
+Dhaka Range,8,28,60,18,1,299,1,13,35,123,904,20,1,690,7,718,2208,October,2021
+Mymensingh Range,1,0,10,13,0,179,1,0,1,46,436,2,0,274,25,301,988,October,2021
+Chittagong Range,6,10,43,4,0,265,5,21,32,105,963,33,2,945,8,988,2442,October,2021
+Sylhet Range,1,6,14,0,0,79,3,3,5,27,310,2,0,140,16,158,606,October,2021
+Khulna Range,3,8,17,3,0,170,2,2,24,82,563,21,4,519,17,561,1435,October,2021
+Barishal Range,3,4,12,1,0,128,1,1,19,19,400,1,0,246,0,247,835,October,2021
+Rajshahi Range,0,8,37,7,0,185,5,6,11,61,553,20,2,1224,54,1300,2173,October,2021
+Rangpur Range,1,1,18,1,0,229,2,2,18,55,578,1,0,305,18,324,1229,October,2021
+Railway Range,0,0,2,0,0,0,0,0,0,12,7,0,0,18,1,19,40,October,2021
+Total,29,94,243,70,1,1966,35,57,228,741,5800,130,14,6687,175,7006,16270,October,2021

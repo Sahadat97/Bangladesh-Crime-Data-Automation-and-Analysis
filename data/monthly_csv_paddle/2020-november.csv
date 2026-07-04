@@ -1,0 +1,19 @@
+unit_name,dacoity,robbery,murder,speedy_trial,riot,woman_child_repression,kidnapping,police_assault,burglary,theft,other_cases,r_arms_act,r_explosive_act,r_narcotics,r_smuggling,total_recovery_cases,total_cases,month,year
+DMP,2,10,18,9,0,225,4,7,72,123,535,6,8,1450,11,1475,2480,November,2020
+CMP,1,7,8,16,0,96,3,2,13,23,154,49,0,256,5,310,633,November,2020
+KMP,0,1,1,0,0,15,0,1,2,7,37,0,0,148,0,148,212,November,2020
+RMP,0,1,4,1,0,26,1,0,3,7,56,0,0,377,33,410,509,November,2020
+BMP,0,2,2,2,0,19,0,0,5,12,33,0,0,70,0,70,145,November,2020
+SMP,0,0,4,9,0,37,0,1,3,11,101,3,1,61,10,75,241,November,2020
+RPMP,0,0,2,1,0,18,0,1,4,8,48,0,0,54,0,54,136,November,2020
+GMP,1,2,3,1,0,41,6,0,4,8,93,0,0,76,0,76,235,November,2020
+Dhaka Range,13,19,63,16,0,358,12,9,34,100,1140,16,2,827,5,850,2614,November,2020
+Mymensingh Range,0,0,16,9,0,183,1,3,7,43,507,1,0,283,11,295,1064,November,2020
+Chittagong Range,10,13,47,4,4,297,12,1,30,112,976,28,3,815,12,858,2364,November,2020
+Sylhet Range,0,6,18,4,0,84,0,4,8,34,365,4,1,167,19,191,714,November,2020
+Khulna Range,1,6,24,8,0,193,3,1,17,75,601,15,1,542,25,583,1512,November,2020
+Barishal Range,1,1,13,1,0,135,1,1,13,22,419,0,0,261,0,261,868,November,2020
+Rajshahi Range,0,7,27,3,0,235,3,6,8,39,585,11,3,971,76,1061,1974,November,2020
+Rangpur Range,0,2,21,2,0,239,1,3,16,46,717,0,0,395,17,412,1459,November,2020
+Railway Range,0,2,0,0,0,1,0,0,0,5,16,1,0,34,0,35,59,November,2020
+Total,29,79,271,86,4,2202,47,40,239,675,6383,134,19,6787,224,7164,17219,November,2020

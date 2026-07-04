@@ -1,0 +1,19 @@
+unit_name,dacoity,robbery,murder,speedy_trial,riot,woman_child_repression,kidnapping,police_assault,burglary,theft,other_cases,r_arms_act,r_explosive_act,r_narcotics,r_smuggling,total_recovery_cases,total_cases,month,year
+DMP,2,22,20,4,1,210,4,4,60,141,477,12,2,1355,15,1384,2329,November,2019
+CMP,0,5,5,9,0,94,0,2,8,20,109,51,1,421,4,477,729,November,2019
+KMP,0,0,1,0,0,9,6,0,4,1,23,3,0,111,1,115,153,November,2019
+RMP,0,1,4,0,0,14,1,0,1,7,38,2,0,325,19,346,412,November,2019
+BMP,0,0,3,0,0,21,1,0,8,7,33,2,0,88,0,90,163,November,2019
+SMP,0,2,3,6,0,23,1,1,1,16,62,4,0,63,9,76,191,November,2019
+RPMP,1,1,1,1,0,18,0,0,0,3,33,1,0,67,0,68,126,November,2019
+GMP,0,2,6,0,0,39,3,0,3,11,65,7,0,155,2,164,293,November,2019
+Dhaka Range,6,16,47,6,0,302,8,7,31,83,885,22,2,1245,10,1279,2670,November,2019
+Mymensingh Range,0,2,14,2,0,161,1,0,7,34,417,3,0,597,4,604,1242,November,2019
+Chittagong Range,7,14,51,9,0,267,6,8,25,82,810,47,1,1058,6,1112,2391,November,2019
+Sylhet Range,2,6,19,0,0,66,1,4,1,31,312,10,0,230,31,271,713,November,2019
+Khulna Range,1,7,28,2,0,169,0,1,19,62,596,21,4,743,26,794,1679,November,2019
+Barishal Range,1,1,7,1,0,111,3,0,14,19,377,3,0,284,0,287,821,November,2019
+Rajshahi Range,1,6,26,4,0,236,3,4,7,35,554,22,4,1362,137,1525,2401,November,2019
+Rangpur Range,1,6,22,2,0,183,0,7,8,42,677,3,0,533,81,617,1565,November,2019
+Railway Range,0,4,1,0,0,0,0,0,0,5,9,1,0,33,15,49,68,November,2019
+Total,22,95,258,46,1,1923,32,38,197,599,5477,214,14,8670,360,9258,17946,November,2019

@@ -1,0 +1,19 @@
+unit_name,dacoity,robbery,murder,speedy_trial,riot,woman_child_repression,kidnapping,police_assault,burglary,theft,other_cases,r_arms_act,r_explosive_act,r_narcotics,r_smuggling,total_recovery_cases,total_cases,month,year
+DMP,2,26,22,9,0,214,8,4,60,126,559,11,2,1438,6,1457,2487,September,2020
+CMP,0,10,5,9,0,73,0,3,16,25,168,39,1,220,2,262,571,September,2020
+KMP,0,3,0,2,0,6,2,0,1,13,30,0,0,155,1,156,213,September,2020
+RMP,0,2,2,1,0,24,1,0,5,5,51,2,0,271,15,288,379,September,2020
+BMP,0,0,4,1,0,14,1,0,3,10,44,1,0,49,0,50,127,September,2020
+SMP,0,0,1,4,0,28,2,1,5,12,58,1,0,42,10,53,164,September,2020
+RPMP,0,1,2,1,0,15,0,0,3,9,44,1,0,54,0,55,130,September,2020
+GMP,1,3,5,3,0,58,4,0,7,15,73,1,1,93,3,98,267,September,2020
+Dhaka Range,13,17,65,14,0,370,14,4,33,112,968,17,2,747,2,768,2378,September,2020
+Mymensingh Range,2,3,18,15,0,202,1,0,6,41,457,3,0,220,5,228,973,September,2020
+Chittagong Range,6,18,54,8,0,260,5,3,55,105,914,16,2,765,8,791,2219,September,2020
+Sylhet Range,1,1,10,0,0,107,3,1,6,39,386,1,0,193,24,218,772,September,2020
+Khulna Range,1,7,25,1,0,187,2,1,24,88,626,17,5,535,26,583,1545,September,2020
+Barishal Range,2,6,11,7,0,145,3,1,15,22,382,4,0,224,0,228,822,September,2020
+Rajshahi Range,0,6,29,8,0,348,2,4,12,58,577,11,3,969,101,1084,2128,September,2020
+Rangpur Range,0,1,25,1,0,287,5,1,13,67,651,3,0,361,28,392,1443,September,2020
+Railway Range,0,1,1,0,0,1,1,0,0,5,5,0,0,18,0,18,32,September,2020
+Total,28,105,279,84,0,2339,54,23,264,752,5993,128,16,6354,231,6729,16650,September,2020

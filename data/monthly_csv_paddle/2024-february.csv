@@ -1,0 +1,19 @@
+unit_name,dacoity,robbery,murder,speedy_trial,riot,woman_child_repression,kidnapping,police_assault,burglary,theft,other_cases,r_arms_act,r_explosive_act,r_narcotics,r_smuggling,total_recovery_cases,total_cases,month,year
+DMP,2,26,4,21,0,114,9,4,51,134,576,5,1,800,22,828,1769,February,2024
+CMP,2,11,4,13,0,35,3,2,15,31,167,5,0,228,3,236,519,February,2024
+KMP,1,0,0,0,0,11,0,1,7,14,36,3,0,148,0,151,221,February,2024
+RMP,1,2,0,3,0,15,1,0,6,17,52,0,0,138,0,138,235,February,2024
+BMP,0,0,0,3,0,10,1,1,6,10,48,0,0,46,2,48,127,February,2024
+SMP,1,0,0,6,0,22,0,1,2,9,62,0,0,30,8,38,141,February,2024
+RPMP,0,1,1,0,0,8,1,0,0,12,33,1,0,61,0,62,118,February,2024
+GMP,1,6,10,0,0,32,1,1,9,8,83,2,1,105,1,109,260,February,2024
+Dhaka Range,9,27,54,23,0,252,10,9,32,115,981,12,1,1002,5,1020,2532,February,2024
+Mymensingh Range,0,4,14,1,0,124,1,1,5,39,444,0,0,294,21,315,948,February,2024
+Chittagong Range,5,15,52,9,0,156,5,7,26,121,924,47,1,791,21,860,2180,February,2024
+Sylhet Range,5,4,25,3,0,57,0,3,5,54,313,1,0,122,33,156,625,February,2024
+Khulna Range,1,8,19,10,2,104,3,4,17,61,595,15,1,686,10,712,1536,February,2024
+Barishal Range,1,4,12,6,0,133,1,1,13,35,372,0,1,187,0,188,766,February,2024
+Rajshahi Range,1,9,23,7,0,164,5,1,9,77,729,37,4,986,16,1043,2068,February,2024
+Rangpur Range,3,3,17,3,0,134,2,1,17,71,692,0,0,434,5,439,1382,February,2024
+Railway Range,0,1,5,0,0,0,0,0,0,12,25,1,0,18,1,20,63,February,2024
+Total,33,121,240,108,2,1371,43,37,220,820,6132,129,10,6076,148,6363,15490,February,2024
