@@ -1,0 +1,50 @@
+<svg width="680" height="716" viewBox="0 0 680 716" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Bangladesh crime data automation pipeline</title>
+<desc>A vertical flowchart showing how monthly crime statistics move from the Bangladesh Police website, through a scheduled GitHub Actions job and the PaddleOCR-VL API, into a growing master dataset, and finally to a live public dashboard.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<g>
+<rect x="180" y="40" width="320" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="340" y="58" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="14" font-weight="500" fill="#2C2C2A">Bangladesh Police website</text>
+<text x="340" y="76" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="400" fill="#5F5E5A">Monthly PDF reports published</text>
+</g>
+<line x1="340" y1="96" x2="340" y2="156" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<g>
+<rect x="180" y="156" width="320" height="56" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+<text x="340" y="174" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="14" font-weight="500" fill="#3C3489">GitHub Actions</text>
+<text x="340" y="192" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="400" fill="#534AB7">Runs 1st-15th monthly</text>
+</g>
+<line x1="340" y1="212" x2="340" y2="272" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<g>
+<rect x="180" y="272" width="320" height="56" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+<text x="340" y="290" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="14" font-weight="500" fill="#3C3489">pipeline_paddle.py</text>
+<text x="340" y="308" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="400" fill="#534AB7">Skips already-processed months</text>
+</g>
+<line x1="340" y1="328" x2="340" y2="388" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<g>
+<rect x="180" y="388" width="320" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="340" y="406" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="14" font-weight="500" fill="#085041">PaddleOCR-VL API</text>
+<text x="340" y="424" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="400" fill="#0F6E56">Extracts tables from scans</text>
+</g>
+<line x1="340" y1="444" x2="340" y2="504" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<g>
+<rect x="180" y="504" width="320" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="340" y="522" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="14" font-weight="500" fill="#085041">Master dataset</text>
+<text x="340" y="540" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="400" fill="#0F6E56">Committed to GitHub</text>
+</g>
+<line x1="340" y1="560" x2="340" y2="620" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<g>
+<rect x="180" y="620" width="320" height="56" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="0.5"/>
+<text x="340" y="638" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="14" font-weight="500" fill="#712B13">Live dashboard</text>
+<text x="340" y="656" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="400" fill="#993C1D">Streamlit Cloud, auto-updates</text>
+</g>
+</svg>

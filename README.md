@@ -7,6 +7,10 @@ analysis.
 
 **Live dashboard:** [bangladesh-crime-data-automation-and-analysis-bvphgl452h7man7k.streamlit.app](https://bangladesh-crime-data-automation-and-analysis-bvphgl452h7man7k.streamlit.app)
 
+<p align="center">
+  <img src="docs/pipeline-diagram.svg" alt="Bangladesh crime data automation pipeline: monthly PDF reports from the Bangladesh Police website trigger a scheduled GitHub Actions job, which uses the PaddleOCR-VL API to extract new tables into the master dataset, auto-updating the live Streamlit dashboard." width="480">
+</p>
+
 ## Data source
 
 The Bangladesh Police publishes crime statistics broken down by unit
