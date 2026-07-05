@@ -80,14 +80,15 @@ whenever new data is pushed.
 ## Dashboard
 
 **`app/app.py`** is a [Streamlit](https://streamlit.io/) dashboard for
-exploring the consolidated data: national/unit trends over time, a crime-type
-breakdown, and a dedicated recovery-cases view. Columns prefixed `r_`
-(`r_arms_act`, `r_explosive_act`, `r_narcotics`, `r_smuggling`) are
-**recovery cases** — arms, explosives, narcotics, or smuggled goods
-recovered by police — as distinct from the filed criminal case counts in
-the other columns. It has three tabs: the Vision-based monthly dataset, the
-PaddleOCR-based monthly dataset (for side-by-side accuracy comparison), and
-the 2010-2019 annual dataset.
+exploring `bd_crime_monthly_master_paddle.csv` (the PaddleOCR-VL dataset):
+national/unit trends over time, a crime-type breakdown, and a dedicated
+recovery-cases view. Columns prefixed `r_` (`r_arms_act`, `r_explosive_act`,
+`r_narcotics`, `r_smuggling`) are **recovery cases** — arms, explosives,
+narcotics, or smuggled goods recovered by police — as distinct from the
+filed criminal case counts in the other columns. National totals are read
+directly from the dataset's own `Total` row (trustworthy now that the
+dataset has zero blank cells), while per-unit rankings always come from the
+individual unit rows.
 
 Live at [bangladesh-crime-data-automation-and-analysis-bvphgl452h7man7k.streamlit.app](https://bangladesh-crime-data-automation-and-analysis-bvphgl452h7man7k.streamlit.app),
 or run it locally:

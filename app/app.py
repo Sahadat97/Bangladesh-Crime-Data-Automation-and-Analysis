@@ -1,11 +1,11 @@
 """Streamlit dashboard for Bangladesh Police crime statistics.
 
-Reads the consolidated CSVs produced by scraper/pipeline.py and
-scraper/scrape_year_table.py (data/bd_crime_monthly_master.csv and
-data/bd_crime_annual_2010_2019.csv) and presents them as an interactive
-dashboard: national/unit trends, crime-type breakdowns, and a dedicated
-view for "recovery" cases (the r_* columns - cases where police recovered
-arms, explosives, narcotics, or smuggled goods, as opposed to cases filed).
+Reads data/bd_crime_monthly_master_paddle.csv - the dataset built entirely
+by the hosted PaddleOCR-VL API (see scraper/pipeline_paddle.py) - and
+presents it as an interactive dashboard: national/unit trends, crime-type
+breakdowns, and a dedicated view for "recovery" cases (the r_* columns -
+cases where police recovered arms, explosives, narcotics, or smuggled
+goods, as opposed to cases filed).
 """
 from pathlib import Path
 
@@ -14,6 +14,7 @@ import plotly.express as px
 import streamlit as st
 
 DATA_DIR = Path(__file__).parent.parent / "data"
+MASTER_PATH = DATA_DIR / "bd_crime_monthly_master_paddle.csv"
 
 CRIME_COLUMNS = {
     "dacoity": "Dacoity",
@@ -37,9 +38,9 @@ RECOVERY_COLUMNS = {
 }
 
 UNIT_ORDER = [
-    "DMP", "CMP", "KMP", "RMP", "BMP", "SMP", "RPMP", "GMP", "ATU",
+    "DMP", "CMP", "KMP", "RMP", "BMP", "SMP", "RPMP", "GMP",
     "Dhaka Range", "Mymensingh Range", "Chittagong Range", "Sylhet Range",
-    "Khulna Range", "Barishal Range", "Barisal Range", "Rajshahi Range",
+    "Khulna Range", "Barishal Range", "Rajshahi Range",
     "Rangpur Range", "Railway Range",
 ]
 
@@ -50,30 +51,14 @@ MONTH_ORDER = [
 
 
 @st.cache_data
-def load_monthly(path) -> pd.DataFrame:
-    df = pd.read_csv(path)
+def load_monthly() -> pd.DataFrame:
+    df = pd.read_csv(MASTER_PATH)
     df = df[~df["is_annual_total"]]  # exclude the Jan-Dec total page - a duplicate of the year, not a 13th month
     df["month"] = pd.Categorical(df["month"], categories=MONTH_ORDER, ordered=True)
     df["period"] = pd.to_datetime(
         df["year"].astype(int).astype(str) + "-" + df["month"].astype(str), format="%Y-%B", errors="coerce"
     )
     return df
-
-
-@st.cache_data
-def load_annual() -> pd.DataFrame:
-    return pd.read_csv(DATA_DIR / "bd_crime_annual_2010_2019.csv")
-
-
-def scope_to_units(filtered: pd.DataFrame, selected_units: list[str]) -> pd.DataFrame:
-    """Individual unit-level rows for the current selection. When nothing is
-    selected, this is every unit *except* "Total" - the aggregate is then a
-    cumulative sum over the actual monthly unit data, computed here, rather
-    than trusting the dataset's own (separately OCR'd) "Total" row.
-    """
-    if selected_units:
-        return filtered[filtered["unit_name"].isin(selected_units)]
-    return filtered[filtered["unit_name"] != "Total"]
 
 
 def sorted_units(units: pd.Series) -> list[str]:
@@ -85,15 +70,27 @@ def sorted_units(units: pd.Series) -> list[str]:
     return ordered
 
 
-def render_kpis(df: pd.DataFrame):
-    """df should be individual unit-level rows (not the dataset's own "Total"
-    row) so both the sums and the per-unit breakdown below are computed from
-    the same real data, rather than trusting a separately-OCR'd "Total" cell.
+def totals_scope(filtered: pd.DataFrame, selected_units: list[str]) -> pd.DataFrame:
+    """Rows to sum for the headline KPIs, trend line, and crime/recovery
+    breakdowns. When specific units are picked, that's their rows; otherwise
+    it's the dataset's own "Total" row directly - trustworthy to match
+    exactly, now that the PaddleOCR-VL dataset has zero blank cells.
     """
-    total_cases = df["total_cases"].sum()
-    total_recovery = df["total_recovery_cases"].sum()
-    top_crime_col = df[list(CRIME_COLUMNS)].sum().idxmax() if not df.empty else None
-    top_unit = df.groupby("unit_name")["total_cases"].sum().idxmax() if not df.empty else "N/A"
+    if selected_units:
+        return filtered[filtered["unit_name"].isin(selected_units)]
+    return filtered[filtered["unit_name"] == "Total"]
+
+
+def render_kpis(totals_df: pd.DataFrame, units_df: pd.DataFrame):
+    """totals_df drives the summed numbers (matches the Total row when
+    unfiltered); units_df is always individual (non-Total) unit rows, since
+    ranking the highest-crime unit needs real per-unit data regardless of
+    what totals_df represents.
+    """
+    total_cases = totals_df["total_cases"].sum()
+    total_recovery = totals_df["total_recovery_cases"].sum()
+    top_crime_col = totals_df[list(CRIME_COLUMNS)].sum().idxmax() if not totals_df.empty else None
+    top_unit = units_df.groupby("unit_name")["total_cases"].sum().idxmax() if not units_df.empty else "N/A"
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Cases", f"{total_cases:,.0f}")
@@ -143,39 +140,40 @@ def render_unit_comparison(df: pd.DataFrame):
     st.plotly_chart(fig, use_container_width=True)
 
 
-def render_data_table(df: pd.DataFrame, key: str):
+def render_data_table(df: pd.DataFrame):
     st.subheader("Raw Data")
     st.dataframe(df, use_container_width=True, hide_index=True)
     st.download_button(
         "Download filtered data as CSV",
         df.to_csv(index=False).encode("utf-8"),
-        file_name=f"{key}.csv",
+        file_name="bd_crime_monthly_paddle_filtered.csv",
         mime="text/csv",
     )
 
 
-def monthly_tab(master_path, key_prefix, source_note):
-    df = load_monthly(master_path)
+def main():
+    st.set_page_config(page_title="Bangladesh Crime Statistics", layout="wide")
+    st.title("Bangladesh Crime Statistics Dashboard")
+    st.markdown(
+        "Data automatically scraped from official "
+        "[Bangladesh Police](https://www.police.gov.bd/) crime statistics reports "
+        "and extracted with the hosted [PaddleOCR-VL](https://paddleocr.ai/) API "
+        "(see `scraper/pipeline_paddle.py`)."
+    )
 
-    st.sidebar.header(f"{key_prefix.title()} Filters")
+    df = load_monthly()
+
+    st.sidebar.header("Filters")
     years = sorted(df["year"].dropna().unique())
-    year_range = st.sidebar.select_slider(
-        "Year range", options=years, value=(years[0], years[-1]), key=f"{key_prefix}_years"
-    )
+    year_range = st.sidebar.select_slider("Year range", options=years, value=(years[0], years[-1]))
     unit_options = sorted_units(df["unit_name"])
-    selected_units = st.sidebar.multiselect(
-        "Units (national total shown if empty)", unit_options, key=f"{key_prefix}_units"
-    )
+    selected_units = st.sidebar.multiselect("Units (national total shown if empty)", unit_options)
 
-    mask = df["year"].between(*year_range)
-    filtered = df[mask]
+    filtered = df[df["year"].between(*year_range)]
+    st.caption(f"{len(filtered):,} unit-month records across {int(year_range[0])}-{int(year_range[1])}.")
 
-    st.caption(
-        f"{len(filtered):,} unit-month records across "
-        f"{int(year_range[0])}-{int(year_range[1])}. {source_note}"
-    )
-
-    scope = scope_to_units(filtered, selected_units)
+    scope = totals_scope(filtered, selected_units)
+    units_only = filtered[filtered["unit_name"] != "Total"]
 
     trend = scope.groupby("period", as_index=False)["total_cases"].sum()
     st.subheader("Total Cases Over Time" + (" (Selected Units)" if selected_units else " (National)"))
@@ -183,75 +181,10 @@ def monthly_tab(master_path, key_prefix, source_note):
     fig.update_layout(xaxis_title="", yaxis_title="Total Cases")
     st.plotly_chart(fig, use_container_width=True)
 
-    render_kpis(scope)
+    render_kpis(scope, units_only if not selected_units else scope)
     render_breakdown_charts(scope)
     render_unit_comparison(filtered)
-    render_data_table(filtered, f"bd_crime_{key_prefix}_filtered")
-
-
-def annual_tab():
-    df = load_annual()
-
-    st.sidebar.header("Annual Filters")
-    years = sorted(df["year"].unique())
-    year_range = st.sidebar.select_slider(
-        "Year range", options=years, value=(years[0], years[-1]), key="annual_years"
-    )
-    unit_options = sorted_units(df["unit_name"])
-    selected_units = st.sidebar.multiselect(
-        "Units (national total shown if empty)", unit_options, key="annual_units"
-    )
-
-    filtered = df[df["year"].between(*year_range)]
-    st.caption(
-        f"{len(filtered):,} unit-year records across {int(year_range[0])}-{int(year_range[1])} "
-        "(scraped directly from HTML tables, no OCR involved)."
-    )
-
-    scope = scope_to_units(filtered, selected_units)
-
-    trend = scope.groupby("year", as_index=False)["total_cases"].sum()
-    st.subheader("Total Cases Over Time" + (" (Selected Units)" if selected_units else " (National)"))
-    fig = px.line(trend, x="year", y="total_cases", markers=True)
-    fig.update_layout(xaxis_title="", yaxis_title="Total Cases")
-    st.plotly_chart(fig, use_container_width=True)
-
-    render_kpis(scope)
-    render_breakdown_charts(scope)
-    render_unit_comparison(filtered)
-    render_data_table(filtered, "bd_crime_annual_filtered")
-
-
-def main():
-    st.set_page_config(page_title="Bangladesh Crime Statistics", layout="wide")
-    st.title("Bangladesh Crime Statistics Dashboard")
-    st.markdown(
-        "Data automatically scraped and OCR'd from official "
-        "[Bangladesh Police](https://www.police.gov.bd/) crime statistics reports."
-    )
-
-    tab1, tab2, tab3 = st.tabs([
-        "Monthly (2019-Present)", "Monthly - PaddleOCR", "Annual (2010-2019)",
-    ])
-    with tab1:
-        monthly_tab(
-            DATA_DIR / "bd_crime_monthly_master.csv", "monthly",
-            "Some cells are blank where scanned PDF reports could not be OCR'd "
-            "reliably (see `data/blanks_review.csv`). OCR engine: macOS Vision.",
-        )
-    with tab2:
-        st.caption(
-            "Built entirely with the hosted [PaddleOCR-VL](https://paddleocr.ai/) API "
-            "instead of the default Vision engine (see `scraper/pipeline_paddle.py`), "
-            "kept as a separate dataset for side-by-side accuracy comparison. "
-            "Complete - zero blank cells across all 1,728 rows."
-        )
-        monthly_tab(
-            DATA_DIR / "bd_crime_monthly_master_paddle.csv", "paddle",
-            "OCR engine: PaddleOCR-VL (hosted API).",
-        )
-    with tab3:
-        annual_tab()
+    render_data_table(filtered)
 
 
 if __name__ == "__main__":
