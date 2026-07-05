@@ -98,23 +98,6 @@ def sorted_units(units: pd.Series) -> list[str]:
     return ordered
 
 
-def unified_trend(scope: pd.DataFrame) -> pd.DataFrame:
-    """One combined time series for the trend chart: real monthly points for
-    2019+ (from `period`), and one point per year positioned at January 1st
-    for years with no monthly breakdown (2010-2018 - `scope` only has an
-    is_annual_total row for a year here if dedupe_annual_vs_monthly already
-    found no monthly counterpart for it). Plotting both on the same
-    continuous date axis lets the chart's own range slider zoom from a
-    multi-year view down into a single year's monthly detail, rather than
-    needing a separate granularity control.
-    """
-    monthly_part = scope[~scope["is_annual_total"]].groupby("period", as_index=False)["total_cases"].sum()
-    annual_part = scope[scope["is_annual_total"]].groupby("year", as_index=False)["total_cases"].sum()
-    annual_part["period"] = pd.to_datetime(annual_part["year"].astype(str) + "-01-01")
-    combined = pd.concat([monthly_part[["period", "total_cases"]], annual_part[["period", "total_cases"]]])
-    return combined.sort_values("period")
-
-
 def totals_scope(filtered: pd.DataFrame, selected_units: list[str]) -> pd.DataFrame:
     """Rows to sum for the headline KPIs, trend line, and crime/recovery
     breakdowns. When specific units are picked, that's their rows; otherwise
@@ -234,24 +217,43 @@ def main():
     year_range = st.sidebar.select_slider("Year range", options=years, value=(years[0], years[-1]))
     unit_options = sorted_units(df["unit_name"])
     selected_units = st.sidebar.multiselect("Units (national total shown if empty)", unit_options)
+    selected_months = st.sidebar.multiselect("Months (all shown if empty)", MONTH_ORDER)
 
     filtered = df[df["year"].between(*year_range)]
-    filtered = dedupe_annual_vs_monthly(filtered)
+    if selected_months:
+        # A specific month only exists as a genuine monthly row - annual-only
+        # rows (2010-2018, or a year's Jan-Dec summary) represent the whole
+        # year and can't be attributed to one month, so they're excluded
+        # entirely once a month filter is active.
+        filtered = filtered[(~filtered["is_annual_total"]) & (filtered["month"].isin(selected_months))]
+    else:
+        filtered = dedupe_annual_vs_monthly(filtered)
     st.caption(f"{len(filtered):,} unit-period records across {int(year_range[0])}-{int(year_range[1])}.")
 
     scope = totals_scope(filtered, selected_units)
     units_only = filtered[filtered["unit_name"] != "Total"]
 
     st.subheader("Total Cases Over Time" + (" (Selected Units)" if selected_units else " (National)"))
-    trend = unified_trend(scope)
-    fig = px.line(trend, x="period", y="total_cases", markers=True)
-    fig.update_layout(xaxis_title="", yaxis_title="Total Cases")
-    st.plotly_chart(fig, use_container_width=True)
-    if year_range[0] < 2019:
-        st.caption(
-            "2010-2018 only had a yearly total published (no monthly breakdown "
-            "exists for those years), so each shows as a single point."
-        )
+    view = st.radio("View", ["Year", "Month"], horizontal=True)
+    if view == "Year":
+        trend = scope.groupby("year", as_index=False)["total_cases"].sum()
+        fig = px.line(trend, x="year", y="total_cases", markers=True)
+        fig.update_layout(xaxis_title="", yaxis_title="Total Cases")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        monthly_only = scope[~scope["is_annual_total"]]
+        trend = monthly_only.groupby("period", as_index=False)["total_cases"].sum()
+        if trend.empty:
+            st.info("No monthly data available for the current filters.")
+        else:
+            fig = px.line(trend, x="period", y="total_cases", markers=True)
+            fig.update_layout(xaxis_title="", yaxis_title="Total Cases")
+            st.plotly_chart(fig, use_container_width=True)
+        if year_range[0] < 2019:
+            st.caption(
+                "2010-2018 only had a yearly total published (no monthly "
+                "breakdown exists for those years), so they don't appear here."
+            )
 
     render_kpis(scope, units_only if not selected_units else scope)
     render_breakdown_charts(scope)
