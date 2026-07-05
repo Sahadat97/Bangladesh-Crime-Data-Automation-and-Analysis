@@ -246,13 +246,11 @@ def main():
     trend = unified_trend(scope)
     fig = px.line(trend, x="period", y="total_cases", markers=True)
     fig.update_layout(xaxis_title="", yaxis_title="Total Cases")
-    fig.update_xaxes(rangeslider_visible=True)
     st.plotly_chart(fig, use_container_width=True)
     if year_range[0] < 2019:
         st.caption(
             "2010-2018 only had a yearly total published (no monthly breakdown "
-            "exists for those years), so each shows as a single point. Drag the "
-            "slider below the chart to zoom into 2019+ for monthly detail."
+            "exists for those years), so each shows as a single point."
         )
 
     render_kpis(scope, units_only if not selected_units else scope)
