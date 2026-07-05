@@ -129,6 +129,7 @@ def run_api():
             continue
 
         n_pages = len(pages)
+        seen_months = set()
         for page_index, res in enumerate(pages):
             markdown_text = res.get("markdown", {}).get("text", "")
             month, year, is_annual = parse_caption(markdown_text)
@@ -143,6 +144,16 @@ def run_api():
                 continue
 
             month, year, is_annual = infer_caption(entry, pdf_path, page_index, n_pages, month, year, is_annual)
+
+            # Some source PDFs (e.g. September 2025's) repeat the same month's
+            # page twice verbatim - skip re-adding a (month, year) already
+            # seen from an earlier page of this same file, rather than
+            # double-counting it in the master dataset.
+            if (month, year, is_annual) in seen_months:
+                print(f"  page {page_index}: {month} {year} - SKIPPED (duplicate of an earlier page in this file)")
+                continue
+            seen_months.add((month, year, is_annual))
+
             df["month"] = month
             df["year"] = year
 
