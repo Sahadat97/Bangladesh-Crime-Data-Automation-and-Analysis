@@ -110,27 +110,47 @@ streamlit run app/app.py
 
 ## Repository layout
 
+**`data/bd_crime_monthly_master_paddle.csv` is the final dataset** for this
+project — it's what the dashboard reads and what the monthly automation
+updates. It covers 2010-present and has zero blank cells, since the
+PaddleOCR-VL API produces meaningfully more accurate OCR results than the
+Vision/local-PaddleOCR pipeline (see the accuracy comparison above).
+`bd_crime_monthly_master.csv` (Vision-based) is kept only as a reference for
+that comparison, not used by the dashboard or automation.
+
 ```
+.github/
+  workflows/monthly_update.yml  # scheduled CI job that keeps the final dataset current (see Automation)
+
+docs/
+  pipeline-diagram.svg    # architecture diagram used in this README
+
 scraper/
   scrape_listing.py       # discovers monthly PDF report URLs
   scrape_year_table.py    # scrapes 2010-2019 annual HTML tables
-  extract_pdf_table.py    # OCR + table extraction from scanned PDFs
-  pipeline.py             # end-to-end orchestration
+  extract_pdf_table.py    # OCR + table extraction from scanned PDFs (Vision or local PaddleOCR)
+  paddleocr_vl_api.py     # client for the hosted PaddleOCR-VL API
+  pipeline.py             # Vision / local-PaddleOCR pipeline orchestration
+  pipeline_paddle.py      # PaddleOCR-VL API pipeline orchestration - builds the final dataset
   ocr.swift / build.sh    # macOS Vision-based OCR helper (compile with build.sh)
   bin/ocr                 # compiled OCR binary
-  requirements-paddleocr.txt  # optional deps for the paddleocr engine
+  requirements.txt        # scraper/pipeline dependencies
+  requirements-paddleocr.txt  # optional deps for the local paddleocr engine
 
 app/
-  app.py                  # Streamlit dashboard
+  app.py                  # Streamlit dashboard - reads bd_crime_monthly_master_paddle.csv
   requirements.txt        # dashboard dependencies
 
 data/
-  pdfs/                   # cached source PDF downloads
-  monthly_csv/            # one CSV per extracted month
-  annual_2010_2019/       # per-year CSVs (2010-2019)
-  bd_crime_annual_2010_2019.csv   # consolidated annual table (2010-2019)
-  bd_crime_monthly_master.csv     # consolidated monthly table (2019-present)
-  blanks_review.csv       # cells OCR couldn't read, for manual review
+  pdfs/                                # cached source PDF downloads
+  monthly_csv/                         # per-month CSVs, Vision/local pipeline (reference only)
+  monthly_csv_paddle/                  # per-month CSVs, PaddleOCR-VL pipeline
+  annual_2010_2019/                    # per-year CSVs (2010-2019), scraped from HTML
+  bd_crime_annual_2010_2019.csv        # consolidated annual table (2010-2019, HTML source)
+  bd_crime_monthly_master.csv          # Vision-based master (2019-present) - reference only
+  bd_crime_monthly_master_paddle.csv   # final master dataset (2010-present)
+  blanks_review.csv                    # Vision pipeline's unread cells, for manual review
+  blanks_review_paddle.csv             # PaddleOCR-VL pipeline's unread cells, for manual review
 ```
 
 ## Setup
