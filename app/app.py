@@ -241,14 +241,14 @@ def main():
         )
     with tab2:
         st.caption(
-            "Built entirely with [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) "
+            "Built entirely with the hosted [PaddleOCR-VL](https://paddleocr.ai/) API "
             "instead of the default Vision engine (see `scraper/pipeline_paddle.py`), "
-            "kept as a separate dataset for side-by-side accuracy comparison."
+            "kept as a separate dataset for side-by-side accuracy comparison. "
+            "Complete - zero blank cells across all 1,728 rows."
         )
         monthly_tab(
             DATA_DIR / "bd_crime_monthly_master_paddle.csv", "paddle",
-            "Some cells are blank where scanned PDF reports could not be OCR'd "
-            "reliably (see `data/blanks_review_paddle.csv`). OCR engine: PaddleOCR.",
+            "OCR engine: PaddleOCR-VL (hosted API).",
         )
     with tab3:
         annual_tab()
