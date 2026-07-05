@@ -5,6 +5,8 @@ An automated pipeline that scrapes crime statistics published by the
 scanned monthly reports, and consolidates everything into clean CSVs for
 analysis.
 
+**Live dashboard:** [bangladesh-crime-data-automation-and-analysis-bvphgl452h7man7k.streamlit.app](https://bangladesh-crime-data-automation-and-analysis-bvphgl452h7man7k.streamlit.app)
+
 ## Data source
 
 The Bangladesh Police publishes crime statistics broken down by unit
@@ -51,13 +53,11 @@ The Bangladesh Police publishes crime statistics broken down by unit
    token. Pass `--engine local` instead to use the paddleocr Python library
    locally, per page (the original approach, via `extract_pdf_table.py`).
 
-   Across all 96 pages, this API path left only 664 blank cells - and 663 of
-   those come from one systematic gap (the "Railway Range" row is dropped
-   entirely on ~40% of pages), with just a single other stray blank in the
-   whole dataset. That's a meaningfully more complete result than either the
-   Vision (416 blanks) or local-library PaddleOCR (426 blanks) paths, at the
-   cost of depending on an external paid API instead of running fully
-   offline.
+   This API path initially left some cells blank (a systematic gap where the
+   "Railway Range" row was dropped on ~40% of pages, plus one isolated
+   stray blank), all since resolved - see `data/blanks_review_paddle.csv`
+   for the audit trail. The current `bd_crime_monthly_master_paddle.csv` has
+   zero blank cells across all 1,728 rows.
 
 ## Dashboard
 
@@ -70,6 +70,9 @@ recovered by police — as distinct from the filed criminal case counts in
 the other columns. It has three tabs: the Vision-based monthly dataset, the
 PaddleOCR-based monthly dataset (for side-by-side accuracy comparison), and
 the 2010-2019 annual dataset.
+
+Live at [bangladesh-crime-data-automation-and-analysis-bvphgl452h7man7k.streamlit.app](https://bangladesh-crime-data-automation-and-analysis-bvphgl452h7man7k.streamlit.app),
+or run it locally:
 
 ```bash
 pip3 install -r app/requirements.txt
