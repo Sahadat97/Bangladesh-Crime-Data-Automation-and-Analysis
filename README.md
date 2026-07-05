@@ -163,9 +163,22 @@ pip3 install -r scraper/requirements.txt
 ## ▶️ Usage
 
 ```bash
-python3 scraper/pipeline.py                    # OCRs scanned pages with Vision (default)
-python3 scraper/pipeline.py --engine paddleocr  # OCRs scanned pages with PaddleOCR instead
+python3 scraper/pipeline_paddle.py                 # builds the final dataset via the hosted PaddleOCR-VL API (default)
+python3 scraper/pipeline_paddle.py --engine local   # uses the paddleocr Python library locally instead
 ```
 
 This downloads any new monthly PDFs, extracts their tables, and refreshes
-`data/bd_crime_monthly_master.csv` and `data/blanks_review.csv`.
+`data/bd_crime_monthly_master_paddle.csv` and `data/blanks_review_paddle.csv`
+— incrementally, so re-running only processes genuinely new months (see
+Automation above). Requires the `PADDLEOCR_API_TOKEN` environment variable
+set to an AI Studio access token.
+
+The Vision-based pipeline is kept only as a reference for the accuracy
+comparison documented above, and can still be run directly:
+
+```bash
+python3 scraper/pipeline.py                    # OCRs scanned pages with Vision (default)
+python3 scraper/pipeline.py --engine paddleocr  # OCRs scanned pages with the local paddleocr library instead
+```
+
+This refreshes `data/bd_crime_monthly_master.csv` and `data/blanks_review.csv`.
