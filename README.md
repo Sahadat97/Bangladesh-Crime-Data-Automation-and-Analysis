@@ -11,7 +11,7 @@ analysis.
   <img src="docs/pipeline-diagram.svg" alt="Bangladesh crime data automation pipeline: monthly PDF reports from the Bangladesh Police website trigger a scheduled GitHub Actions job, which uses the PaddleOCR-VL API to extract new tables into the master dataset, auto-updating the live Streamlit dashboard." width="480">
 </p>
 
-## Data source
+## 📊 Data source
 
 The Bangladesh Police publishes crime statistics broken down by unit
 (metropolitan police, ranges, etc.) and crime type:
@@ -20,7 +20,7 @@ The Bangladesh Police publishes crime statistics broken down by unit
 - **2019-present**: published monthly as scanned PDF reports (no text layer),
   listed on paginated announcement pages
 
-## How it works
+## ⚙️ How it works
 
 1. **`scrape_listing.py`** walks the paginated announcement listing and
    collects one record per monthly PDF report (title, month, year, download
@@ -72,7 +72,7 @@ The Bangladesh Police publishes crime statistics broken down by unit
    the master's `source_pdf` column is skipped (no download, no API call),
    so re-running it only processes genuinely new months.
 
-## Automation
+## 🤖 Automation
 
 `.github/workflows/monthly_update.yml` runs `pipeline_paddle.py` on a
 schedule (a few times during the 1st-15th of each month, since the police
@@ -82,7 +82,7 @@ Since the pipeline is incremental, a run where nothing new has been
 published yet does no OCR work. The Streamlit Cloud app auto-redeploys
 whenever new data is pushed.
 
-## Dashboard
+## 📈 Dashboard
 
 **`app/app.py`** is a [Streamlit](https://streamlit.io/) dashboard for
 exploring `bd_crime_monthly_master_paddle.csv` (which now spans 2010-present
@@ -108,7 +108,7 @@ pip3 install -r app/requirements.txt
 streamlit run app/app.py
 ```
 
-## Repository layout
+## 🗂️ Repository layout
 
 **`data/bd_crime_monthly_master_paddle.csv` is the final dataset** for this
 project — it's what the dashboard reads and what the monthly automation
@@ -153,14 +153,14 @@ data/
   blanks_review_paddle.csv             # PaddleOCR-VL pipeline's unread cells, for manual review
 ```
 
-## Setup
+## 🛠️ Setup
 
 ```bash
 pip3 install -r scraper/requirements.txt
 ./scraper/build.sh                 # compile the Vision OCR helper (macOS only)
 ```
 
-## Usage
+## ▶️ Usage
 
 ```bash
 python3 scraper/pipeline.py                    # OCRs scanned pages with Vision (default)
