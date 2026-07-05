@@ -39,6 +39,11 @@ def build_page_dataframe(markdown_text):
     on, and header rows simply won't match any unit name so they're skipped.
     """
     unit_lookup = {u.lower(): u for u in UNITS}
+    # The source scans occasionally have "Ralway Range" (a genuine typo in
+    # the government template, confirmed by inspecting the raw parsed table)
+    # instead of "Railway Range" - without this alias the row reads fine but
+    # fails our unit match and silently looks like a dropped/missing row.
+    unit_lookup["ralway range"] = "Railway Range"
     n_numeric_cols = len(COLUMNS) - 1
     matched = {}
 
