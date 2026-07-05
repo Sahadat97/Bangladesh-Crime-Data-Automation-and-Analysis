@@ -51,12 +51,18 @@ MONTH_ORDER = [
 
 
 @st.cache_data
-def load_data() -> pd.DataFrame:
+def load_data(_mtime: float) -> pd.DataFrame:
     """2010-2018 only has one annual row per unit (scraped from HTML tables,
     no monthly breakdown available); 2019+ has monthly rows plus, for most
     years, its own Jan-Dec annual-total row too. `period` (a real calendar
     date) is only computed for genuine monthly rows - annual-only rows get
     NaT, since they can't be placed at a specific month.
+
+    `_mtime` isn't used in the body - it's the CSV's modification time,
+    passed in purely so Streamlit's cache key changes whenever the file is
+    updated (e.g. by the monthly automation workflow). Without it, this
+    function has no arguments at all, so the cache would never invalidate
+    until the app process itself restarts.
     """
     df = pd.read_csv(MASTER_PATH)
     is_regular_month = df["month"].isin(MONTH_ORDER)
@@ -90,6 +96,23 @@ def sorted_units(units: pd.Series) -> list[str]:
     if "Total" in present:
         ordered.append("Total")
     return ordered
+
+
+def unified_trend(scope: pd.DataFrame) -> pd.DataFrame:
+    """One combined time series for the trend chart: real monthly points for
+    2019+ (from `period`), and one point per year positioned at January 1st
+    for years with no monthly breakdown (2010-2018 - `scope` only has an
+    is_annual_total row for a year here if dedupe_annual_vs_monthly already
+    found no monthly counterpart for it). Plotting both on the same
+    continuous date axis lets the chart's own range slider zoom from a
+    multi-year view down into a single year's monthly detail, rather than
+    needing a separate granularity control.
+    """
+    monthly_part = scope[~scope["is_annual_total"]].groupby("period", as_index=False)["total_cases"].sum()
+    annual_part = scope[scope["is_annual_total"]].groupby("year", as_index=False)["total_cases"].sum()
+    annual_part["period"] = pd.to_datetime(annual_part["year"].astype(str) + "-01-01")
+    combined = pd.concat([monthly_part[["period", "total_cases"]], annual_part[["period", "total_cases"]]])
+    return combined.sort_values("period")
 
 
 def totals_scope(filtered: pd.DataFrame, selected_units: list[str]) -> pd.DataFrame:
@@ -132,6 +155,7 @@ def render_breakdown_charts(df: pd.DataFrame):
             crime_totals, orientation="h",
             labels={"value": "Cases", "index": ""},
         )
+        fig.update_traces(hovertemplate="Cases: %{x:,}<extra></extra>")
         fig.update_layout(showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -164,10 +188,30 @@ def render_unit_comparison(df: pd.DataFrame):
 
 def render_data_table(df: pd.DataFrame):
     st.subheader("Raw Data")
-    st.dataframe(df, use_container_width=True, hide_index=True)
+
+    filter_cols = st.multiselect("Filter by column", df.columns.tolist())
+    result = df
+    for col in filter_cols:
+        if pd.api.types.is_bool_dtype(df[col]):
+            options = sorted(df[col].dropna().unique().tolist())
+            chosen = st.multiselect(col, options, default=options)
+            result = result[result[col].isin(chosen)]
+        elif pd.api.types.is_numeric_dtype(df[col]):
+            lo, hi = float(df[col].min()), float(df[col].max())
+            if lo == hi:
+                st.caption(f"{col}: only one value ({lo:g}) in the current selection")
+                continue
+            chosen_range = st.slider(col, lo, hi, (lo, hi))
+            result = result[result[col].between(*chosen_range)]
+        else:
+            options = sorted(df[col].dropna().unique().tolist(), key=str)
+            chosen = st.multiselect(col, options, default=options)
+            result = result[result[col].isin(chosen)]
+
+    st.dataframe(result, use_container_width=True, hide_index=True)
     st.download_button(
         "Download filtered data as CSV",
-        df.to_csv(index=False).encode("utf-8"),
+        result.to_csv(index=False).encode("utf-8"),
         file_name="bd_crime_monthly_paddle_filtered.csv",
         mime="text/csv",
     )
@@ -183,7 +227,7 @@ def main():
         "(see `scraper/pipeline_paddle.py`)."
     )
 
-    df = load_data()
+    df = load_data(MASTER_PATH.stat().st_mtime)
 
     st.sidebar.header("Filters")
     years = sorted(df["year"].dropna().unique())
@@ -199,20 +243,16 @@ def main():
     units_only = filtered[filtered["unit_name"] != "Total"]
 
     st.subheader("Total Cases Over Time" + (" (Selected Units)" if selected_units else " (National)"))
-    granularity = st.select_slider("Granularity", options=["Year", "Month"], value="Year")
-    if granularity == "Year":
-        trend = scope.groupby("year", as_index=False)["total_cases"].sum()
-        fig = px.line(trend, x="year", y="total_cases", markers=True)
-    else:
-        monthly_only = scope[~scope["is_annual_total"]]
-        trend = monthly_only.groupby("period", as_index=False)["total_cases"].sum()
-        fig = px.line(trend, x="period", y="total_cases", markers=True)
+    trend = unified_trend(scope)
+    fig = px.line(trend, x="period", y="total_cases", markers=True)
     fig.update_layout(xaxis_title="", yaxis_title="Total Cases")
+    fig.update_xaxes(rangeslider_visible=True)
     st.plotly_chart(fig, use_container_width=True)
-    if granularity == "Month" and year_range[0] < 2019:
+    if year_range[0] < 2019:
         st.caption(
-            "Monthly data is unavailable for 2010-2018 - only a yearly total "
-            "was published for those years, so they don't appear on this view."
+            "2010-2018 only had a yearly total published (no monthly breakdown "
+            "exists for those years), so each shows as a single point. Drag the "
+            "slider below the chart to zoom into 2019+ for monthly detail."
         )
 
     render_kpis(scope, units_only if not selected_units else scope)
