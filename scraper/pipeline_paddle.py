@@ -84,17 +84,32 @@ def parse_caption(markdown_text):
 
 
 def run_api():
+    """Incremental: a PDF whose filename already appears in the existing
+    master's source_pdf column is skipped entirely (no download, no API
+    call) rather than re-submitted. Each PDF is an immutable historical
+    record once published, so this is safe, and it's what makes a recurring
+    monthly job cheap - only the (typically one) new month actually hits
+    the paid API.
+    """
     PDF_DIR.mkdir(parents=True, exist_ok=True)
     CSV_DIR_PADDLE.mkdir(parents=True, exist_ok=True)
 
-    listings = fetch_all_listings()
-    print(f"Found {len(listings)} listing entries")
+    existing_master = pd.read_csv(MASTER_PATH_PADDLE) if MASTER_PATH_PADDLE.exists() else None
+    existing_blanks = pd.read_csv(BLANKS_PATH_PADDLE) if BLANKS_PATH_PADDLE.exists() else None
+    already_processed = set(existing_master["source_pdf"].unique()) if existing_master is not None else set()
 
-    all_blanks = []
-    all_frames = []
+    listings = fetch_all_listings()
+    print(f"Found {len(listings)} listing entries ({len(already_processed)} already processed)")
+
+    new_blanks = []
+    new_frames = []
 
     for entry in listings:
         pdf_path = PDF_DIR / f"{slugify_title(entry['title'])}.pdf"
+        if pdf_path.name in already_processed:
+            print(f"Skipping {entry['title']} ({pdf_path.name}) - already in master")
+            continue
+
         try:
             download_pdf(entry["pdf_url"], pdf_path)
         except Exception as e:
@@ -106,7 +121,7 @@ def run_api():
             pages = run_ocr_pdf(pdf_path)
         except Exception as e:
             print(f"  [API FAILED] {entry['title']}: {e}")
-            all_blanks.append({
+            new_blanks.append({
                 "source": entry["title"], "page": None,
                 "month": None, "year": None, "unit": "ENTIRE FILE",
                 "column": "API call failed", "note": str(e),
@@ -120,7 +135,7 @@ def run_api():
             df = build_page_dataframe(markdown_text)
             if df is None:
                 print(f"  page {page_index}: FAILED - no unit rows matched in markdown table")
-                all_blanks.append({
+                new_blanks.append({
                     "source": entry["title"], "page": page_index,
                     "month": None, "year": None, "unit": "ENTIRE PAGE",
                     "column": "extraction failed", "note": "no matching unit rows in markdown table",
@@ -137,14 +152,14 @@ def run_api():
             df.to_csv(csv_path, index=False)
             df["is_annual_total"] = is_annual
             df["source_pdf"] = pdf_path.name
-            all_frames.append(df)
+            new_frames.append(df)
 
             numeric_cols = [c for c in COLUMNS if c != "unit_name"]
             blanks_in_page = 0
             for _, row in df.iterrows():
                 for col in numeric_cols:
                     if pd.isna(row[col]):
-                        all_blanks.append({
+                        new_blanks.append({
                             "source": entry["title"], "page": page_index,
                             "month": month, "year": year, "unit": row["unit_name"],
                             "column": col, "note": "",
@@ -152,14 +167,27 @@ def run_api():
                         blanks_in_page += 1
             print(f"  page {page_index}: {label} -> {csv_path.name} ({blanks_in_page} blanks)")
 
-    if all_blanks:
-        pd.DataFrame(all_blanks).to_csv(BLANKS_PATH_PADDLE, index=False)
-        print(f"\n{len(all_blanks)} total blank cells logged to {BLANKS_PATH_PADDLE}")
+    if not new_frames and not new_blanks:
+        print("\nNothing new to process.")
+        return
 
-    if all_frames:
-        master = pd.concat(all_frames, ignore_index=True)
-        master.to_csv(MASTER_PATH_PADDLE, index=False)
-        print(f"Master table: {len(master)} rows -> {MASTER_PATH_PADDLE}")
+    if new_blanks:
+        blanks_df = pd.DataFrame(new_blanks)
+        combined_blanks = (
+            pd.concat([existing_blanks, blanks_df], ignore_index=True)
+            if existing_blanks is not None else blanks_df
+        )
+        combined_blanks.to_csv(BLANKS_PATH_PADDLE, index=False)
+        print(f"\n{len(blanks_df)} new blank cells logged ({len(combined_blanks)} total) -> {BLANKS_PATH_PADDLE}")
+
+    if new_frames:
+        new_master_rows = pd.concat(new_frames, ignore_index=True)
+        combined_master = (
+            pd.concat([existing_master, new_master_rows], ignore_index=True)
+            if existing_master is not None else new_master_rows
+        )
+        combined_master.to_csv(MASTER_PATH_PADDLE, index=False)
+        print(f"Master table: +{len(new_master_rows)} rows ({len(combined_master)} total) -> {MASTER_PATH_PADDLE}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,44 @@
+name: Monthly crime data update
+
+# The Bangladesh Police site publishes each month's report sometime in the
+# first half of that month, on no fixed day - so this checks a few times
+# during that window instead of once. run_api() in pipeline_paddle.py skips
+# any PDF already present in the master dataset, so a run where nothing new
+# has been published yet costs nothing beyond a listing-page check.
+on:
+  schedule:
+    - cron: "0 6 1,5,8,12,15 * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r scraper/requirements.txt
+
+      - name: Run PaddleOCR-VL pipeline
+        env:
+          PADDLEOCR_API_TOKEN: ${{ secrets.PADDLEOCR_API_TOKEN }}
+        run: python scraper/pipeline_paddle.py
+
+      - name: Commit and push if data changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No new data - nothing to commit."
+          else
+            git commit -m "Monthly data update: $(date -u +%Y-%m-%d)"
+            git push
+          fi

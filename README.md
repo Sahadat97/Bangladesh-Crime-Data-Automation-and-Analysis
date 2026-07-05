@@ -59,6 +59,20 @@ The Bangladesh Police publishes crime statistics broken down by unit
    for the audit trail. The current `bd_crime_monthly_master_paddle.csv` has
    zero blank cells across all 1,728 rows.
 
+   `run_api()` is incremental: any PDF whose filename already appears in
+   the master's `source_pdf` column is skipped (no download, no API call),
+   so re-running it only processes genuinely new months.
+
+## Automation
+
+`.github/workflows/monthly_update.yml` runs `pipeline_paddle.py` on a
+schedule (a few times during the 1st-15th of each month, since the police
+site publishes on no fixed day within that window) and commits any new
+rows back to `main`. Requires a `PADDLEOCR_API_TOKEN` repository secret.
+Since the pipeline is incremental, a run where nothing new has been
+published yet does no OCR work. The Streamlit Cloud app auto-redeploys
+whenever new data is pushed.
+
 ## Dashboard
 
 **`app/app.py`** is a [Streamlit](https://streamlit.io/) dashboard for
