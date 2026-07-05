@@ -51,14 +51,36 @@ MONTH_ORDER = [
 
 
 @st.cache_data
-def load_monthly() -> pd.DataFrame:
+def load_data() -> pd.DataFrame:
+    """2010-2018 only has one annual row per unit (scraped from HTML tables,
+    no monthly breakdown available); 2019+ has monthly rows plus, for most
+    years, its own Jan-Dec annual-total row too. `period` (a real calendar
+    date) is only computed for genuine monthly rows - annual-only rows get
+    NaT, since they can't be placed at a specific month.
+    """
     df = pd.read_csv(MASTER_PATH)
-    df = df[~df["is_annual_total"]]  # exclude the Jan-Dec total page - a duplicate of the year, not a 13th month
-    df["month"] = pd.Categorical(df["month"], categories=MONTH_ORDER, ordered=True)
-    df["period"] = pd.to_datetime(
-        df["year"].astype(int).astype(str) + "-" + df["month"].astype(str), format="%Y-%B", errors="coerce"
+    is_regular_month = df["month"].isin(MONTH_ORDER)
+    df["period"] = pd.NaT
+    df.loc[is_regular_month, "period"] = pd.to_datetime(
+        df.loc[is_regular_month, "year"].astype(int).astype(str) + "-" + df.loc[is_regular_month, "month"],
+        format="%Y-%B",
     )
     return df
+
+
+def dedupe_annual_vs_monthly(df: pd.DataFrame) -> pd.DataFrame:
+    """For each (unit_name, year), keeps the monthly rows if any exist for
+    that year, otherwise keeps the single annual-total row. Without this, a
+    year like 2020 - which has both 12 monthly rows and its own Jan-Dec
+    annual-total row - would get double-counted in any sum over the full
+    dataset; 2010-2018 has no monthly rows at all, so its annual row is the
+    only data to keep.
+    """
+    monthly = df[~df["is_annual_total"]]
+    annual_only = df[df["is_annual_total"]]
+    covered = set(monthly[["unit_name", "year"]].apply(tuple, axis=1))
+    annual_fallback = annual_only[~annual_only[["unit_name", "year"]].apply(tuple, axis=1).isin(covered)]
+    return pd.concat([monthly, annual_fallback], ignore_index=True)
 
 
 def sorted_units(units: pd.Series) -> list[str]:
@@ -161,7 +183,7 @@ def main():
         "(see `scraper/pipeline_paddle.py`)."
     )
 
-    df = load_monthly()
+    df = load_data()
 
     st.sidebar.header("Filters")
     years = sorted(df["year"].dropna().unique())
@@ -170,20 +192,32 @@ def main():
     selected_units = st.sidebar.multiselect("Units (national total shown if empty)", unit_options)
 
     filtered = df[df["year"].between(*year_range)]
-    st.caption(f"{len(filtered):,} unit-month records across {int(year_range[0])}-{int(year_range[1])}.")
+    filtered = dedupe_annual_vs_monthly(filtered)
+    st.caption(f"{len(filtered):,} unit-period records across {int(year_range[0])}-{int(year_range[1])}.")
 
     scope = totals_scope(filtered, selected_units)
     units_only = filtered[filtered["unit_name"] != "Total"]
 
-    trend = scope.groupby("period", as_index=False)["total_cases"].sum()
     st.subheader("Total Cases Over Time" + (" (Selected Units)" if selected_units else " (National)"))
-    fig = px.line(trend, x="period", y="total_cases", markers=True)
+    granularity = st.select_slider("Granularity", options=["Year", "Month"], value="Year")
+    if granularity == "Year":
+        trend = scope.groupby("year", as_index=False)["total_cases"].sum()
+        fig = px.line(trend, x="year", y="total_cases", markers=True)
+    else:
+        monthly_only = scope[~scope["is_annual_total"]]
+        trend = monthly_only.groupby("period", as_index=False)["total_cases"].sum()
+        fig = px.line(trend, x="period", y="total_cases", markers=True)
     fig.update_layout(xaxis_title="", yaxis_title="Total Cases")
     st.plotly_chart(fig, use_container_width=True)
+    if granularity == "Month" and year_range[0] < 2019:
+        st.caption(
+            "Monthly data is unavailable for 2010-2018 - only a yearly total "
+            "was published for those years, so they don't appear on this view."
+        )
 
     render_kpis(scope, units_only if not selected_units else scope)
     render_breakdown_charts(scope)
-    render_unit_comparison(filtered)
+    render_unit_comparison(units_only)
     render_data_table(filtered)
 
 

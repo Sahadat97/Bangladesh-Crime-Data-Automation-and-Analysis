@@ -26,7 +26,12 @@ The Bangladesh Police publishes crime statistics broken down by unit
    collects one record per monthly PDF report (title, month, year, download
    URL).
 2. **`scrape_year_table.py`** pulls the older (2010-2019) annual tables
-   directly from HTML — no OCR needed.
+   directly from HTML — no OCR needed. 2010-2018 of this output has since
+   been merged into `bd_crime_monthly_master_paddle.csv` as annual-only rows
+   (`is_annual_total=True`, no monthly breakdown); 2019 is deliberately
+   excluded from the merge since the master already has full monthly 2019
+   data from the PDF pipeline. The `"Barisal Range"` spelling used here is
+   aliased to `"Barishal Range"` (the modern spelling) during the merge.
 3. **`extract_pdf_table.py`** processes each scanned PDF page: extracts the
    embedded raster image, detects the table's grid lines with OpenCV, OCRs
    the page, and maps each recognized token to its (row, column) cell using
@@ -80,15 +85,20 @@ whenever new data is pushed.
 ## Dashboard
 
 **`app/app.py`** is a [Streamlit](https://streamlit.io/) dashboard for
-exploring `bd_crime_monthly_master_paddle.csv` (the PaddleOCR-VL dataset):
-national/unit trends over time, a crime-type breakdown, and a dedicated
-recovery-cases view. Columns prefixed `r_` (`r_arms_act`, `r_explosive_act`,
-`r_narcotics`, `r_smuggling`) are **recovery cases** — arms, explosives,
-narcotics, or smuggled goods recovered by police — as distinct from the
-filed criminal case counts in the other columns. National totals are read
-directly from the dataset's own `Total` row (trustworthy now that the
-dataset has zero blank cells), while per-unit rankings always come from the
-individual unit rows.
+exploring `bd_crime_monthly_master_paddle.csv` (which now spans 2010-present
+- see below): national/unit trends over time, a crime-type breakdown, and a
+dedicated recovery-cases view. Columns prefixed `r_` (`r_arms_act`,
+`r_explosive_act`, `r_narcotics`, `r_smuggling`) are **recovery cases** —
+arms, explosives, narcotics, or smuggled goods recovered by police — as
+distinct from the filed criminal case counts in the other columns. National
+totals are read directly from the dataset's own `Total` row (trustworthy
+now that the dataset has zero blank cells), while per-unit rankings always
+come from the individual unit rows.
+
+The "Total Cases Over Time" chart has a Year/Month granularity slider,
+defaulting to Year. 2010-2018 only ever had a yearly total published (no
+monthly breakdown exists for those years), so switching to Month view drops
+them from the chart with an explanatory note, rather than showing gaps.
 
 Live at [bangladesh-crime-data-automation-and-analysis-bvphgl452h7man7k.streamlit.app](https://bangladesh-crime-data-automation-and-analysis-bvphgl452h7man7k.streamlit.app),
 or run it locally:
