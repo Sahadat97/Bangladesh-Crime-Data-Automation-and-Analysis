@@ -160,6 +160,10 @@ data/
   bd_crime_monthly_master_paddle.csv   # final master dataset (2010-present)
   blanks_review.csv                    # Vision pipeline's unread cells, for manual review
   blanks_review_paddle.csv             # PaddleOCR-VL pipeline's unread cells, for manual review
+
+bd_gis/
+  # Range/Metro unit boundaries and coordinates used by the Crime Map
+  # in app.py - see bd_gis/README.md for how they were built
 ```
 
 ## 🛠️ Setup
