@@ -349,7 +349,8 @@ def main():
             )
 
     render_kpis(scope, units_only if not selected_units else scope)
-    render_crime_map(units_only)
+    map_scope = units_only[units_only["unit_name"].isin(selected_units)] if selected_units else units_only
+    render_crime_map(map_scope)
     render_breakdown_charts(scope)
     render_unit_comparison(units_only)
     render_data_table(filtered)
