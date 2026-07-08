@@ -17,3 +17,6 @@ env/
 
 # Claude Code local config
 .claude/
+
+# npm build tooling used to generate bd_gis/ data, not needed at runtime
+bd_gis/npm_pkgs/node_modules/

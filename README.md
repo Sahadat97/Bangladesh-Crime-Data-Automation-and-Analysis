@@ -95,10 +95,19 @@ totals are read directly from the dataset's own `Total` row (trustworthy
 now that the dataset has zero blank cells), while per-unit rankings always
 come from the individual unit rows.
 
-The "Total Cases Over Time" chart has a Year/Month granularity slider,
-defaulting to Year. 2010-2018 only ever had a yearly total published (no
-monthly breakdown exists for those years), so switching to Month view drops
-them from the chart with an explanatory note, rather than showing gaps.
+The "Total Cases Over Time" chart has a Year/Month view toggle, defaulting
+to Year. 2010-2018 only ever had a yearly total published (no monthly
+breakdown exists for those years), so switching to Month view drops them
+from the chart with an explanatory note, rather than showing gaps. The
+sidebar also has a Months filter alongside Year range and Units.
+
+The **Crime Map** plots cases geographically using `bd_gis/` (see that
+folder's own README for how the boundaries were built): the 8 Ranges as
+shaded polygons (real district-dissolved boundaries) and the 8 Metropolitan
+Police units as size/color-scaled markers at their headquarters (no public
+source ships thana-level boundary polygons for Metro units, so those are
+points, not polygons). `ATU` and `Railway Range` have no geographic
+boundary at all and are excluded from the map, with a caption noting so.
 
 Live at [bangladesh-crime-data-automation-and-analysis-bvphgl452h7man7k.streamlit.app](https://bangladesh-crime-data-automation-and-analysis-bvphgl452h7man7k.streamlit.app),
 or run it locally:

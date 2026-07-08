@@ -7,14 +7,24 @@ breakdowns, and a dedicated view for "recovery" cases (the r_* columns -
 cases where police recovered arms, explosives, narcotics, or smuggled
 goods, as opposed to cases filed).
 """
+import json
 from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 MASTER_PATH = DATA_DIR / "bd_crime_monthly_master_paddle.csv"
+GIS_DIR = Path(__file__).parent.parent / "bd_gis"
+RANGES_GEOJSON_PATH = GIS_DIR / "bd_police_ranges.geojson"
+METRO_UNITS_PATH = GIS_DIR / "bd_metro_police_units.csv"
+
+# The GIS source uses the older "Barisal Range" spelling (one "s"); the
+# crime dataset uses the modern "Barishal Range" (two) - aliased here so the
+# two datasets join on the same unit names.
+RANGE_NAME_ALIAS = {"Barisal Range": "Barishal Range"}
 
 CRIME_COLUMNS = {
     "dacoity": "Dacoity",
@@ -72,6 +82,89 @@ def load_data(_mtime: float) -> pd.DataFrame:
         format="%Y-%B",
     )
     return df
+
+
+@st.cache_data
+def load_gis():
+    """Ranges have real polygon boundaries (dissolved district boundaries);
+    Metro units only have headquarters points, since no public source ships
+    thana-level boundary polygons for them (see bd_gis/README.md). Railway
+    Range and Total have no geometry at all and are excluded from the map.
+    """
+    with open(RANGES_GEOJSON_PATH) as f:
+        ranges_geojson = json.load(f)
+    for feature in ranges_geojson["features"]:
+        name = feature["properties"]["range_name"]
+        feature["properties"]["range_name"] = RANGE_NAME_ALIAS.get(name, name)
+
+    metro = pd.read_csv(METRO_UNITS_PATH)
+    return ranges_geojson, metro
+
+
+def render_crime_map(units_df: pd.DataFrame):
+    st.subheader("Crime Map")
+    ranges_geojson, metro = load_gis()
+
+    unit_totals = units_df.groupby("unit_name")["total_cases"].sum()
+
+    range_names = [f["properties"]["range_name"] for f in ranges_geojson["features"]]
+    range_values = [unit_totals.get(name) for name in range_names]
+    metro = metro.copy()
+    metro["total_cases"] = metro["unit"].map(unit_totals)
+
+    all_values = [v for v in range_values if v is not None] + metro["total_cases"].dropna().tolist()
+    if not all_values:
+        st.info("No data available for the current filters.")
+        return
+    vmin, vmax = min(all_values), max(all_values)
+
+    fig = go.Figure()
+    fig.add_trace(go.Choroplethmap(
+        geojson=ranges_geojson,
+        locations=range_names,
+        z=range_values,
+        featureidkey="properties.range_name",
+        colorscale="Oranges",
+        zmin=vmin, zmax=vmax,
+        marker_opacity=0.7,
+        marker_line_width=0.5,
+        marker_line_color="#5F5E5A",
+        colorbar_title="Cases",
+        hovertemplate="<b>%{location}</b><br>Cases: %{z:,.0f}<extra></extra>",
+        name="Ranges",
+    ))
+
+    sizes = metro["total_cases"].fillna(0)
+    marker_sizes = 12 + 28 * (sizes / sizes.max()).pow(0.5) if sizes.max() else 12
+    fig.add_trace(go.Scattermap(
+        lat=metro["lat"], lon=metro["lon"],
+        mode="markers",
+        marker=dict(
+            size=marker_sizes, color=metro["total_cases"],
+            colorscale="Oranges", cmin=vmin, cmax=vmax,
+            showscale=False,
+        ),
+        customdata=metro[["unit", "name", "total_cases"]],
+        hovertemplate="<b>%{customdata[1]} (%{customdata[0]})</b><br>Cases: %{customdata[2]:,.0f}<extra></extra>",
+        name="Metro units",
+    ))
+
+    fig.update_layout(
+        map=dict(style="carto-positron", center=dict(lat=23.8, lon=90.3), zoom=5.3),
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=520,
+        showlegend=False,
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    missing = sorted(set(unit_totals.index) - set(range_names) - set(metro["unit"]) - {"Total"})
+    if missing:
+        st.caption(
+            f"No boundary/location data available for: {', '.join(missing)} "
+            "(not shown on the map - see `bd_gis/README.md`). Ranges are shaded "
+            "polygons; Metropolitan Police units are markers sized and colored "
+            "by case count."
+        )
 
 
 def dedupe_annual_vs_monthly(df: pd.DataFrame) -> pd.DataFrame:
@@ -256,6 +349,7 @@ def main():
             )
 
     render_kpis(scope, units_only if not selected_units else scope)
+    render_crime_map(units_only)
     render_breakdown_charts(scope)
     render_unit_comparison(units_only)
     render_data_table(filtered)

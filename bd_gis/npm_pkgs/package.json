@@ -1,0 +1,20 @@
+{
+  "name": "npm_pkgs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@bangladeshi/bangladesh-address": "^2.1.0",
+    "bangladesh-geo-data": "^4.0.9",
+    "bangladesh-location-data": "^1.0.6",
+    "bd-geodata": "^1.0.7",
+    "bd-geojson": "^1.0.5",
+    "bdatlas": "^1.0.10"
+  }
+}
