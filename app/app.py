@@ -8,6 +8,7 @@ cases where police recovered arms, explosives, narcotics, or smuggled
 goods, as opposed to cases filed).
 """
 import json
+import math
 from pathlib import Path
 
 import pandas as pd
@@ -101,7 +102,55 @@ def load_gis():
     return ranges_geojson, metro
 
 
-def render_crime_map(units_df: pd.DataFrame):
+DEFAULT_MAP_CENTER = {"lat": 23.8, "lon": 90.3}
+DEFAULT_MAP_ZOOM = 5.3
+
+
+def _flatten_coords(coords):
+    """Yields every [lon, lat] pair out of a GeoJSON Polygon or MultiPolygon
+    coordinates array, regardless of nesting depth.
+    """
+    if isinstance(coords[0], (int, float)):
+        yield coords
+    else:
+        for c in coords:
+            yield from _flatten_coords(c)
+
+
+def compute_map_view(selected_units, ranges_geojson, metro):
+    """Bounding box + zoom level covering just the selected units, so the
+    map auto-zooms in on them instead of always showing the whole country.
+    Falls back to the default full-country view when nothing is selected.
+    """
+    if not selected_units:
+        return DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM
+
+    range_by_name = {f["properties"]["range_name"]: f for f in ranges_geojson["features"]}
+    lats, lons = [], []
+    for unit in selected_units:
+        feature = range_by_name.get(unit)
+        if feature is not None:
+            coords = list(_flatten_coords(feature["geometry"]["coordinates"]))
+            lats += [c[1] for c in coords]
+            lons += [c[0] for c in coords]
+        metro_row = metro[metro["unit"] == unit]
+        lats += metro_row["lat"].tolist()
+        lons += metro_row["lon"].tolist()
+
+    if not lats:
+        return DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM
+
+    # A single point (one Metro unit) has zero span, so floor it at ~city
+    # scale rather than dividing by/logging zero. Slope and offset are
+    # calibrated so the full-country span (~6 degrees) matches the default
+    # zoom above.
+    span = max(max(lats) - min(lats), max(lons) - min(lons), 0.08)
+    zoom = max(5.0, min(8.4 - 1.2 * math.log2(span), 12.0))
+    center = {"lat": (max(lats) + min(lats)) / 2, "lon": (max(lons) + min(lons)) / 2}
+    return center, zoom
+
+
+def render_crime_map(units_df: pd.DataFrame, selected_units: list[str]):
     st.subheader("Crime Map")
     ranges_geojson, metro = load_gis()
 
@@ -149,8 +198,9 @@ def render_crime_map(units_df: pd.DataFrame):
         name="Metro units",
     ))
 
+    center, zoom = compute_map_view(selected_units, ranges_geojson, metro)
     fig.update_layout(
-        map=dict(style="carto-positron", center=dict(lat=23.8, lon=90.3), zoom=5.3),
+        map=dict(style="carto-positron", center=center, zoom=zoom),
         margin=dict(l=0, r=0, t=0, b=0),
         height=520,
         showlegend=False,
@@ -350,7 +400,7 @@ def main():
 
     render_kpis(scope, units_only if not selected_units else scope)
     map_scope = units_only[units_only["unit_name"].isin(selected_units)] if selected_units else units_only
-    render_crime_map(map_scope)
+    render_crime_map(map_scope, selected_units)
     render_breakdown_charts(scope)
     render_unit_comparison(units_only)
     render_data_table(filtered)
