@@ -179,46 +179,65 @@ def render_crime_map(units_df: pd.DataFrame, selected_units: list[str]):
         st.info("No data available for the current filters.")
         return
     vmin, vmax = min(all_values), max(all_values)
+    if vmin == vmax:
+        # A single value (e.g. exactly one unit selected) gives a
+        # zero-width color range, which breaks the colorscale's internal
+        # normalization - widen it slightly so there's a real span to map
+        # onto and the legend still renders sensibly.
+        vmax = vmin + max(1.0, abs(vmin) * 0.01)
+
+    # A trace with an all-None z array (e.g. only a Metro unit is selected,
+    # so no Range has data) still gets added to the figure by Plotly, but
+    # its explicit zmin/zmax get ignored with nothing real to scale, and
+    # its colorbar falls back to a meaningless default range instead of
+    # being hidden - so only add a trace when it actually has data, and put
+    # the one visible colorbar on whichever trace has it.
+    has_range_data = any(v is not None for v in range_values)
+    has_metro_data = any(v is not None for v in metro_values)
 
     fig = go.Figure()
-    fig.add_trace(go.Choroplethmap(
-        geojson=ranges_geojson,
-        locations=range_names,
-        z=range_values,
-        featureidkey="properties.range_name",
-        colorscale="Oranges",
-        zmin=vmin, zmax=vmax,
-        marker_opacity=0.7,
-        marker_line_width=0.5,
-        marker_line_color="#5F5E5A",
-        colorbar_title="Cases",
-        hovertemplate="<b>%{location}</b><br>Cases: %{z:,.0f}<extra></extra>",
-        name="Ranges",
-    ))
+    if has_range_data:
+        fig.add_trace(go.Choroplethmap(
+            geojson=ranges_geojson,
+            locations=range_names,
+            z=range_values,
+            featureidkey="properties.range_name",
+            colorscale="Oranges",
+            zmin=vmin, zmax=vmax,
+            marker_opacity=0.7,
+            marker_line_width=0.5,
+            marker_line_color="#5F5E5A",
+            showscale=True,
+            colorbar_title="Cases",
+            hovertemplate="<b>%{location}</b><br>Cases: %{z:,.0f}<extra></extra>",
+            name="Ranges",
+        ))
 
-    metro_customdata = [
-        (f["properties"]["name"], f["properties"]["cc_area_sq_km"], f["properties"]["jurisdiction_area_sq_km"])
-        for f in metro_geojson["features"]
-    ]
-    fig.add_trace(go.Choroplethmap(
-        geojson=metro_geojson,
-        locations=metro_units,
-        z=metro_values,
-        featureidkey="properties.unit",
-        colorscale="Oranges",
-        zmin=vmin, zmax=vmax,
-        marker_opacity=0.6,
-        marker_line_width=0.5,
-        marker_line_color="#5F5E5A",
-        showscale=False,
-        customdata=metro_customdata,
-        hovertemplate=(
-            "<b>%{customdata[0]} (%{location})</b><br>Cases: %{z:,.0f}"
-            "<br>City Corporation area shown: %{customdata[1]:,.0f} km²"
-            "<br>Full published jurisdiction: %{customdata[2]:,.0f} km²<extra></extra>"
-        ),
-        name="Metropolitan Police units",
-    ))
+    if has_metro_data:
+        metro_customdata = [
+            (f["properties"]["name"], f["properties"]["cc_area_sq_km"], f["properties"]["jurisdiction_area_sq_km"])
+            for f in metro_geojson["features"]
+        ]
+        fig.add_trace(go.Choroplethmap(
+            geojson=metro_geojson,
+            locations=metro_units,
+            z=metro_values,
+            featureidkey="properties.unit",
+            colorscale="Oranges",
+            zmin=vmin, zmax=vmax,
+            marker_opacity=0.6,
+            marker_line_width=0.5,
+            marker_line_color="#5F5E5A",
+            showscale=not has_range_data,
+            colorbar_title="Cases",
+            customdata=metro_customdata,
+            hovertemplate=(
+                "<b>%{customdata[0]} (%{location})</b><br>Cases: %{z:,.0f}"
+                "<br>City Corporation area shown: %{customdata[1]:,.0f} km²"
+                "<br>Full published jurisdiction: %{customdata[2]:,.0f} km²<extra></extra>"
+            ),
+            name="Metropolitan Police units",
+        ))
 
     center, zoom = compute_map_view(selected_units, ranges_geojson, metro_geojson)
     fig.update_layout(
