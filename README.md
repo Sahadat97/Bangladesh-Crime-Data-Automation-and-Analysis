@@ -103,13 +103,14 @@ sidebar also has a Months filter alongside Year range and Units.
 
 The **Crime Map** plots cases geographically using `bd_gis/` (see that
 folder's own README for how the boundaries were built): the 8 Ranges as
-shaded polygons (real district-dissolved boundaries) and the 8 Metropolitan
-Police units as shaded circles approximating their jurisdiction area,
-centered on headquarters (no public source ships real thana-level boundary
-polygons for Metro units, so this is an area-sized approximation, not a
-true boundary). Selecting units in the sidebar auto-zooms the map to them.
-`ATU` and `Railway Range` have no geographic boundary at all and are
-excluded from the map, with a caption noting so.
+shaded polygons (real district-dissolved boundaries), and the 8
+Metropolitan Police units as their real City Corporation polygon (official
+government source, HDX's Bangladesh admin boundaries) - this is the urban
+core, not the full published jurisdiction, since actual police boundaries
+(a named thana list) still aren't publicly mappable; both areas are shown
+on hover. Selecting units in the sidebar auto-zooms the map to them. `ATU`
+and `Railway Range` have no geographic boundary at all and are excluded
+from the map, with a caption noting so.
 
 Live at [bangladesh-crime-data-automation-and-analysis-bvphgl452h7man7k.streamlit.app](https://bangladesh-crime-data-automation-and-analysis-bvphgl452h7man7k.streamlit.app),
 or run it locally:

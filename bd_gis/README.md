@@ -102,13 +102,51 @@ confirms 50 exist; the two missing from the brief's groupings are
 Bhashantek and Cantonment. I added both to the roster under "unassigned in
 source" rather than guessing which division they belong to.
 
+## Update (2026-07-09): real Metro boundaries via City Corporation polygons
+
+Found that HDX's official Bangladesh admin boundaries (COD-AB, ADM3 level -
+https://data.humdata.org/dataset/cod-ab-bgd, fetched 2026-07-09) includes
+City Corporations as their own polygon features - not part of the standard
+division/district/upazila/union hierarchy checked in the original pass, so
+it was missed then. Every one of the 8 Metro units' City Corporation(s) is
+present, matching the `city_corporations` column already in
+`bd_metro_police_units_v2.csv` exactly.
+
+- `bd_metro_city_corporations.geojson` - one polygon per Metro unit
+  (DMP's is a union of Dhaka North + South City Corporation; the other 7
+  each match one ADM3 feature exactly).
+- `build_metro_cc.py` - the extraction/union script. Its 37MB source file
+  (`bgd_admin3.geojson`, from the HDX zip above) isn't checked in; download
+  fresh to regenerate.
+
+**Important caveat**: City Corporation limits are NOT the same as actual
+police jurisdiction. They're consistently *smaller* than each unit's
+published jurisdiction area in `bd_metro_police_units_v2.csv` - e.g. DMP's
+two City Corporations sum to ~304 km² vs. its reported 1,600 km² - since
+policing extends beyond the core municipal boundary into surrounding
+areas. Both the City-Corporation area and the full jurisdiction area are
+kept as separate properties on each feature so downstream consumers (the
+Streamlit app's map hover) can show both rather than implying the shown
+shape is the complete jurisdiction.
+
+`bd_metro_police_points.geojson` and the original `bd_metro_police_units.csv`
+(headquarters points only) are now superseded by this for mapping purposes,
+but kept for their `lat`/`lon` headquarters coordinates and original source
+citations.
+
 ## Regenerating / extending
 
 - `build_ranges.py` - district -> Range crosswalk and dissolve logic
-- `build_metro.py` - metro unit attribute table
+- `build_metro.py` - original metro unit attribute table (headquarters
+  points; superseded for boundaries by `build_metro_cc.py` above)
+- `build_metro_cc.py` - Metro unit City Corporation boundaries (see above)
+- `build_thana_roster.py` - builds the 110-thana roster from the user brief
+- `geocode_thanas.py` - fills in thana coordinates via Nominatim (run
+  locally - this sandbox's network can't reach it)
 - `districts_adm2.geojson` - raw 64-district source polygons (from bdatlas)
 
-To add real metro boundaries later: replace the point geometries in
-`build_metro.py` with actual thana polygons once/if a suitable source is
-found (e.g. if Bangladesh Police or a City Corporation publishes one), and
-dissolve by unit the same way `build_ranges.py` does for districts.
+To get real thana-level (not City-Corporation-level) metro boundaries:
+run `geocode_thanas.py` to get real points for the roster in
+`bd_metro_thana_roster.csv`, then either dissolve a convex hull around each
+unit's thana points, or search specifically for thana/ward-level polygons
+on OpenStreetMap (not yet checked) as a closer approximation.
