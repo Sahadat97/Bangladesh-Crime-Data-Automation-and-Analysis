@@ -55,6 +55,53 @@ without primary survey/cadastral data from Bangladesh Police, RAJUK, or the
 relevant City Corporation - that would need to be requested directly from
 those agencies.
 
+## Update (2026-07-09): thana-level roster from a user-supplied brief
+
+You sent a detailed "Metropolitan Police Jurisdictions of Bangladesh" brief
+with per-division thana breakdowns for all 8 metro units. Before using it I
+checked it against Wikipedia's infoboxes for each force, since a couple of
+figures (DMP at 1,600 km², RMP at 900 km²) looked too large at first glance.
+Both checked out: DMP's infobox confirms 1,600 km² / 50 stations exactly,
+and RMP's confirms a February 2018 expansion from 4 to 12 stations and 203
+to 900 km² -- police.gov.bd's own RMP page (used in the first pass of this
+project) turned out to be stale, still showing the pre-2018 numbers. RPMP
+and GMP also check out against Wikipedia (239.72 km² and ~331.5 km²
+respectively, vs the brief's 240 and 320 -- within rounding).
+
+Two figures in the brief did NOT match the police.gov.bd pages fetched
+earlier in this project, and I could not resolve which is current:
+- CMP area: brief says 655 km², police.gov.bd says 304.66 km²
+- KMP area: brief says 91 km², police.gov.bd says 70 km²
+Both are plausible if either force's jurisdiction was quietly expanded (as
+happened with RMP) and police.gov.bd's page simply wasn't updated -- but I
+have no independent confirmation either way. Treat these two area figures
+as unverified until you can check a primary source (an RTI request, or the
+individual force's own site).
+
+New files from this pass:
+- `bd_metro_police_units_v2.csv` -- corrected per-unit summary (current
+  thana count, division count, verified/flagged area, city corporation).
+- `bd_metro_thana_roster.csv` -- all 110 thanas across the 8 units, each
+  tagged with its division/zone from the brief. `lat`/`lon` are populated
+  for exactly 2 rows (Gulshan and Dhanmondi, DMP) where I independently
+  verified coordinates against each thana's own Wikipedia infobox -- every
+  other row is blank rather than guessed.
+- `bd_thana_points_verified.geojson` -- just those 2 verified points.
+- `geocode_thanas.py` -- a script to run on your own machine (not this
+  sandbox) that fills in the remaining 108 coordinates via Nominatim,
+  respecting its 1 req/sec usage policy. My sandbox's network is
+  allowlisted and can't reach the Nominatim or Overpass APIs directly,
+  which is why this step needs to happen on your end. Coverage won't be
+  perfect -- not every thana has a well-mapped OSM entry -- but it'll get
+  you real points for most of them; failures print to stderr for manual
+  follow-up.
+
+One gap worth flagging: the brief's DMP division breakdown lists 48 named
+thanas across 8 divisions, but states 50 total. Wikipedia's DMP thana list
+confirms 50 exist; the two missing from the brief's groupings are
+Bhashantek and Cantonment. I added both to the roster under "unassigned in
+source" rather than guessing which division they belong to.
+
 ## Regenerating / extending
 
 - `build_ranges.py` - district -> Range crosswalk and dissolve logic

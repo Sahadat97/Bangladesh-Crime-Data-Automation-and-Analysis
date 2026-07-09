@@ -21,6 +21,7 @@ MASTER_PATH = DATA_DIR / "bd_crime_monthly_master_paddle.csv"
 GIS_DIR = Path(__file__).parent.parent / "bd_gis"
 RANGES_GEOJSON_PATH = GIS_DIR / "bd_police_ranges.geojson"
 METRO_UNITS_PATH = GIS_DIR / "bd_metro_police_units.csv"
+METRO_UNITS_V2_PATH = GIS_DIR / "bd_metro_police_units_v2.csv"
 
 # The GIS source uses the older "Barisal Range" spelling (one "s"); the
 # crime dataset uses the modern "Barishal Range" (two) - aliased here so the
@@ -87,10 +88,14 @@ def load_data(_mtime: float) -> pd.DataFrame:
 
 @st.cache_data
 def load_gis():
-    """Ranges have real polygon boundaries (dissolved district boundaries);
-    Metro units only have headquarters points, since no public source ships
-    thana-level boundary polygons for them (see bd_gis/README.md). Railway
-    Range and Total have no geometry at all and are excluded from the map.
+    """Ranges have real polygon boundaries (dissolved district boundaries).
+    Metro units still don't - no public source ships thana-level boundary
+    polygons for them (see bd_gis/README.md) - so bd_metro_police_units_v2.csv
+    (corrected jurisdiction areas, verified against Wikipedia where possible)
+    is combined with headquarters coordinates from the original
+    bd_metro_police_units.csv, letting render_crime_map draw an approximate
+    circular coverage area per unit instead of a bare point. Railway Range
+    and ATU have no geometry at all and are excluded from the map.
     """
     with open(RANGES_GEOJSON_PATH) as f:
         ranges_geojson = json.load(f)
@@ -98,7 +103,8 @@ def load_gis():
         name = feature["properties"]["range_name"]
         feature["properties"]["range_name"] = RANGE_NAME_ALIAS.get(name, name)
 
-    metro = pd.read_csv(METRO_UNITS_PATH)
+    coords = pd.read_csv(METRO_UNITS_PATH)[["unit", "lat", "lon"]]
+    metro = pd.read_csv(METRO_UNITS_V2_PATH).merge(coords, on="unit", how="left")
     return ranges_geojson, metro
 
 
@@ -117,8 +123,48 @@ def _flatten_coords(coords):
             yield from _flatten_coords(c)
 
 
-def compute_map_view(selected_units, ranges_geojson, metro):
-    """Bounding box + zoom level covering just the selected units, so the
+def _circle_ring(lat, lon, radius_km, n_points=48):
+    """Closed ring of [lon, lat] pairs approximating a circle of the given
+    radius around a point, correcting for longitude compression at higher
+    latitudes (a degree of longitude is shorter than a degree of latitude
+    away from the equator).
+    """
+    earth_radius_km = 6371.0
+    lat_rad = math.radians(lat)
+    ring = []
+    for i in range(n_points + 1):
+        angle = 2 * math.pi * i / n_points
+        dlat = (radius_km / earth_radius_km) * math.cos(angle)
+        dlon = (radius_km / earth_radius_km) * math.sin(angle) / math.cos(lat_rad)
+        ring.append([lon + math.degrees(dlon), lat + math.degrees(dlat)])
+    return ring
+
+
+def build_metro_geojson(metro: pd.DataFrame) -> dict:
+    """One approximate circular polygon per Metro unit, radius derived from
+    its published jurisdiction area (area_sq_km, from bd_metro_police_units_v2.csv).
+    Not a real boundary - thana-level polygons for Metro units aren't
+    publicly available (see bd_gis/README.md) - but a much better visual
+    than a bare headquarters point, and consistent with how Ranges are
+    shown as shaded areas rather than dots.
+    """
+    features = []
+    for _, row in metro.iterrows():
+        if pd.isna(row["area_sq_km"]) or pd.isna(row["lat"]) or pd.isna(row["lon"]):
+            continue
+        radius_km = math.sqrt(row["area_sq_km"] / math.pi)
+        ring = _circle_ring(row["lat"], row["lon"], radius_km)
+        features.append({
+            "type": "Feature",
+            "properties": {"unit": row["unit"], "name": row["name"], "area_sq_km": row["area_sq_km"]},
+            "geometry": {"type": "Polygon", "coordinates": [ring]},
+        })
+    return {"type": "FeatureCollection", "features": features}
+
+
+def compute_map_view(selected_units, ranges_geojson, metro_geojson):
+    """Bounding box + zoom level covering just the selected units' geometry
+    (Range polygon, or Metro unit's approximate coverage circle), so the
     map auto-zooms in on them instead of always showing the whole country.
     Falls back to the default full-country view when nothing is selected.
     """
@@ -126,24 +172,21 @@ def compute_map_view(selected_units, ranges_geojson, metro):
         return DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM
 
     range_by_name = {f["properties"]["range_name"]: f for f in ranges_geojson["features"]}
+    metro_by_unit = {f["properties"]["unit"]: f for f in metro_geojson["features"]}
     lats, lons = [], []
     for unit in selected_units:
-        feature = range_by_name.get(unit)
-        if feature is not None:
+        for feature in (range_by_name.get(unit), metro_by_unit.get(unit)):
+            if feature is None:
+                continue
             coords = list(_flatten_coords(feature["geometry"]["coordinates"]))
             lats += [c[1] for c in coords]
             lons += [c[0] for c in coords]
-        metro_row = metro[metro["unit"] == unit]
-        lats += metro_row["lat"].tolist()
-        lons += metro_row["lon"].tolist()
 
     if not lats:
         return DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM
 
-    # A single point (one Metro unit) has zero span, so floor it at ~city
-    # scale rather than dividing by/logging zero. Slope and offset are
-    # calibrated so the full-country span (~6 degrees) matches the default
-    # zoom above.
+    # Slope and offset are calibrated so the full-country span (~6 degrees)
+    # matches the default zoom above.
     span = max(max(lats) - min(lats), max(lons) - min(lons), 0.08)
     zoom = max(5.0, min(8.4 - 1.2 * math.log2(span), 12.0))
     center = {"lat": (max(lats) + min(lats)) / 2, "lon": (max(lons) + min(lons)) / 2}
@@ -153,15 +196,17 @@ def compute_map_view(selected_units, ranges_geojson, metro):
 def render_crime_map(units_df: pd.DataFrame, selected_units: list[str]):
     st.subheader("Crime Map")
     ranges_geojson, metro = load_gis()
+    metro_geojson = build_metro_geojson(metro)
 
     unit_totals = units_df.groupby("unit_name")["total_cases"].sum()
 
     range_names = [f["properties"]["range_name"] for f in ranges_geojson["features"]]
     range_values = [unit_totals.get(name) for name in range_names]
-    metro = metro.copy()
-    metro["total_cases"] = metro["unit"].map(unit_totals)
 
-    all_values = [v for v in range_values if v is not None] + metro["total_cases"].dropna().tolist()
+    metro_units = [f["properties"]["unit"] for f in metro_geojson["features"]]
+    metro_values = [unit_totals.get(u) for u in metro_units]
+
+    all_values = [v for v in range_values + metro_values if v is not None]
     if not all_values:
         st.info("No data available for the current filters.")
         return
@@ -183,22 +228,29 @@ def render_crime_map(units_df: pd.DataFrame, selected_units: list[str]):
         name="Ranges",
     ))
 
-    sizes = metro["total_cases"].fillna(0)
-    marker_sizes = 12 + 28 * (sizes / sizes.max()).pow(0.5) if sizes.max() else 12
-    fig.add_trace(go.Scattermap(
-        lat=metro["lat"], lon=metro["lon"],
-        mode="markers",
-        marker=dict(
-            size=marker_sizes, color=metro["total_cases"],
-            colorscale="Oranges", cmin=vmin, cmax=vmax,
-            showscale=False,
+    metro_customdata = [
+        (f["properties"]["name"], f["properties"]["area_sq_km"]) for f in metro_geojson["features"]
+    ]
+    fig.add_trace(go.Choroplethmap(
+        geojson=metro_geojson,
+        locations=metro_units,
+        z=metro_values,
+        featureidkey="properties.unit",
+        colorscale="Oranges",
+        zmin=vmin, zmax=vmax,
+        marker_opacity=0.6,
+        marker_line_width=0.5,
+        marker_line_color="#5F5E5A",
+        showscale=False,
+        customdata=metro_customdata,
+        hovertemplate=(
+            "<b>%{customdata[0]} (%{location})</b><br>Cases: %{z:,.0f}"
+            "<br>Approx. area: %{customdata[1]:,.0f} km²<extra></extra>"
         ),
-        customdata=metro[["unit", "name", "total_cases"]],
-        hovertemplate="<b>%{customdata[1]} (%{customdata[0]})</b><br>Cases: %{customdata[2]:,.0f}<extra></extra>",
-        name="Metro units",
+        name="Metropolitan Police units",
     ))
 
-    center, zoom = compute_map_view(selected_units, ranges_geojson, metro)
+    center, zoom = compute_map_view(selected_units, ranges_geojson, metro_geojson)
     fig.update_layout(
         map=dict(style="carto-positron", center=center, zoom=zoom),
         margin=dict(l=0, r=0, t=0, b=0),
@@ -207,14 +259,18 @@ def render_crime_map(units_df: pd.DataFrame, selected_units: list[str]):
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    missing = sorted(set(unit_totals.index) - set(range_names) - set(metro["unit"]) - {"Total"})
+    missing = sorted(set(unit_totals.index) - set(range_names) - set(metro_units) - {"Total"})
     if missing:
         st.caption(
-            f"No boundary/location data available for: {', '.join(missing)} "
-            "(not shown on the map - see `bd_gis/README.md`). Ranges are shaded "
-            "polygons; Metropolitan Police units are markers sized and colored "
-            "by case count."
+            f"No location data available for: {', '.join(missing)} "
+            "(not shown on the map - see `bd_gis/README.md`)."
         )
+    st.caption(
+        "Metropolitan Police areas are approximate circles sized to each "
+        "unit's published jurisdiction area, centered on its headquarters - "
+        "real thana-level boundaries aren't publicly available (see "
+        "`bd_gis/README.md`). Ranges are real district-dissolved boundaries."
+    )
 
 
 def dedupe_annual_vs_monthly(df: pd.DataFrame) -> pd.DataFrame:

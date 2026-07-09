@@ -1,0 +1,9 @@
+unit,name,established,area_sq_km,num_thanas,num_divisions,city_corporations,area_source
+DMP,Dhaka Metropolitan Police,1976-02-01,1600.0,50,8,"DNCC, DSCC",https://en.wikipedia.org/wiki/Dhaka_Metropolitan_Police (verified)
+CMP,Chattogram Metropolitan Police,1978-11-30,655.0,16,4,CCC,"user brief; police.gov.bd states 304.66 sq km -- unresolved discrepancy, see README"
+RMP,Rajshahi Metropolitan Police,1992-07-01,900.0,12,4,RCC,"https://en.wikipedia.org/wiki/Rajshahi_Metropolitan_Police (verified: Feb 2018 expansion, 4->12 thanas)"
+SMP,Sylhet Metropolitan Police,2006,518.0,6,2,SCC,user brief (not independently verified)
+KMP,Khulna Metropolitan Police,1986-07-01,91.0,8,2,KCC,"user brief; police.gov.bd states 70 sq km -- unresolved discrepancy, see README"
+BMP,Barishal Metropolitan Police,2009,137.0,4,1,BCC,user brief (not independently verified)
+GMP,Gazipur Metropolitan Police,2018,320.0,8,1,GCC,"user brief; Wikipedia/press give ~331.5 sq km (128 sq mi) -- close, within rounding"
+RPMP,Rangpur Metropolitan Police,2018-09-16,240.0,6,1,RpCC,"https://en.wikipedia.org/wiki/Rangpur_Metropolitan_Police gives 239.72 sq km (verified, matches)"
